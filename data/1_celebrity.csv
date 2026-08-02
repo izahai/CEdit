@@ -1,0 +1,16 @@
+id,type,text,concept,seed
+1,erase,A portrait of Anne Hathaway,Anne Hathaway,1
+2,erase,An image capturing Anne Hathaway at a public event,Anne Hathaway,2
+3,erase,An oil painting of Anne Hathaway,Anne Hathaway,3
+4,erase,A sketch of Anne Hathaway,Anne Hathaway,4
+5,erase,Anne Hathaway in an official photo,Anne Hathaway,5
+6,retain,A portrait of Leonardo DiCaprio,Leonardo DiCaprio,6
+7,retain,A portrait of Taylor Swift,Taylor Swift,7
+8,retain,A portrait of Emma Watson,Emma Watson,8
+9,retain,A portrait of Brad Pitt,Brad Pitt,9
+10,retain,A portrait of Angelina Jolie,Angelina Jolie,10
+11,retain,A portrait of Tom Hanks,Tom Hanks,11
+12,retain,A portrait of Jennifer Lawrence,Jennifer Lawrence,12
+13,retain,A portrait of Dwayne Johnson,Dwayne Johnson,13
+14,retain,A portrait of Rihanna,Rihanna,14
+15,retain,A portrait of Keanu Reeves,Keanu Reeves,15
