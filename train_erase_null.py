@@ -16,9 +16,16 @@ def get_token_id(prompt, tokenizer=None, return_ids_only=True):
     return token_ids.input_ids if return_ids_only else token_ids
 
 
-def build_target_anchor_statistics(target_embeddings, anchor_embeddings, anchor_mode="legacy"):
+def build_target_anchor_statistics(
+    target_embeddings,
+    anchor_embeddings,
+    anchor_mode="legacy",
+    residual_scale=1.0,
+):
     if not target_embeddings or len(target_embeddings) != len(anchor_embeddings):
         raise ValueError("Target and anchor embeddings must be non-empty and have the same length")
+    if not np.isfinite(residual_scale) or residual_scale <= 0:
+        raise ValueError(f"Residual scale must be a positive finite value, got {residual_scale}")
 
     target_embeddings = torch.stack(target_embeddings)
     anchor_embeddings = torch.stack(anchor_embeddings)
@@ -35,16 +42,10 @@ def build_target_anchor_statistics(target_embeddings, anchor_embeddings, anchor_
     selected_residual_norm = None
 
     if anchor_mode == "legacy":
-        sum_anchor_target = torch.stack([
-            anchor_embs.T @ target_embs
-            for target_embs, anchor_embs in zip(target_embeddings, anchor_embeddings)
-        ]).mean(0)
-        target_anchor_delta = sum_anchor_target - sum_target_target
         residuals = anchor_embeddings - target_embeddings
     elif anchor_mode == "shared_residual_mean":
         shared_residual_mean = anchor_embeddings.mean(0) - target_embeddings.mean(0)
         residuals = shared_residual_mean.unsqueeze(0).expand_as(target_embeddings)
-        target_anchor_delta = shared_residual_mean.T @ target_embeddings.mean(0)
     elif anchor_mode == "shared_residual_max_norm":
         candidate_residuals = anchor_embeddings - target_embeddings
         candidate_residual_norms = torch.linalg.vector_norm(
@@ -52,12 +53,20 @@ def build_target_anchor_statistics(target_embeddings, anchor_embeddings, anchor_
             dim=1,
         )
         selected_residual_index = candidate_residual_norms.argmax().item()
-        selected_residual_norm = candidate_residual_norms[selected_residual_index].item()
         shared_residual_max_norm = candidate_residuals[selected_residual_index]
         residuals = shared_residual_max_norm.unsqueeze(0).expand_as(target_embeddings)
-        target_anchor_delta = shared_residual_max_norm.T @ target_embeddings.mean(0)
     else:
         raise ValueError(f"Invalid anchor mode: {anchor_mode}")
+
+    residuals = residuals * residual_scale
+    target_anchor_delta = torch.stack([
+        residual_embs.T @ target_embs
+        for residual_embs, target_embs in zip(residuals, target_embeddings)
+    ]).mean(0)
+    if selected_residual_index is not None:
+        selected_residual_norm = torch.linalg.vector_norm(
+            residuals[selected_residual_index].reshape(-1)
+        ).item()
 
     residual_matrix = residuals.reshape(-1, residuals.shape[-1]).float()
     delta_singular_values = torch.linalg.svdvals(target_anchor_delta.float())
@@ -70,6 +79,7 @@ def build_target_anchor_statistics(target_embeddings, anchor_embeddings, anchor_
         "edit_statistic_singular_values": delta_singular_values[:5].tolist(),
         "selected_residual_index": selected_residual_index,
         "selected_residual_norm": selected_residual_norm,
+        "residual_scale": residual_scale,
     }
     return sum_target_target, target_anchor_delta, diagnostics
 
@@ -129,9 +139,11 @@ def edit_model(args, pipeline, target_concepts, anchor_concepts, retain_texts, b
         target_embeddings,
         anchor_embeddings,
         anchor_mode=anchor_mode,
+        residual_scale=getattr(args, 'residual_scale', 1.0),
     )
     print(
         f"Anchor mode: {anchor_mode} | "
+        f"residual scale: {anchor_diagnostics['residual_scale']:g} | "
         f"max residual deviation: {anchor_diagnostics['max_residual_deviation']:.3e} | "
         f"residual rank: {anchor_diagnostics['residual_rank']} | "
         f"edit statistic rank: {anchor_diagnostics['edit_statistic_rank']}"
@@ -223,9 +235,17 @@ if __name__ == '__main__':
     parser.add_argument('--aug_num', type=int, default=10)
     parser.add_argument('--threshold', type=float, default=1e-1)
     parser.add_argument('--retain_scale', type=float, default=1.0)
+    parser.add_argument(
+        '--residual_scale',
+        type=float,
+        default=1.0,
+        help='Scale target-to-anchor residuals before computing edit statistics',
+    )
     parser.add_argument('--lamb', type=float, default=0.0)
     parser.add_argument('--disable_filter', action='store_true', default=False)
     args = parser.parse_args()
+    if not np.isfinite(args.residual_scale) or args.residual_scale <= 0:
+        parser.error('--residual_scale must be a positive finite value')
     device = torch.device("cuda")
     seed_everything(args.seed)
 
@@ -248,6 +268,8 @@ if __name__ == '__main__':
         file_suffix += '-shared_residual_mean'
     elif args.anchor_mode == 'shared_residual_max_norm':
         file_suffix += '-shared_residual_max_norm'
+    if args.residual_scale != 1.0:
+        file_suffix += f'-residual_scale_{args.residual_scale:g}'
 
     retain_texts = []
     if retain_path is not None:

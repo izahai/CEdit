@@ -44,6 +44,16 @@ r = r_k
 Nếu embedding gồm nhiều token, `||r_i||_2` được tính trên embedding đã flatten,
 tương đương Frobenius norm của ma trận embedding.
 
+Có thể điều chỉnh độ lớn residual cho mọi mode bằng:
+
+```text
+r_scaled = residual_scale * r
+```
+
+CLI sử dụng `--residual_scale`, mặc định là `1.0` và yêu cầu một số hữu hạn lớn hơn
+0. Residual được scale sau khi mode đã tạo residual riêng/chung, nhưng trước khi tính
+edit statistic và diagnostics.
+
 ## Kiểm chứng
 
 - Kiểm tra mọi `a_i - t_i` bằng nhau trong sai số floating-point.
