@@ -16,6 +16,49 @@ def get_token_id(prompt, tokenizer=None, return_ids_only=True):
     return token_ids.input_ids if return_ids_only else token_ids
 
 
+def build_target_anchor_statistics(target_embeddings, anchor_embeddings, anchor_mode="legacy"):
+    if not target_embeddings or len(target_embeddings) != len(anchor_embeddings):
+        raise ValueError("Target and anchor embeddings must be non-empty and have the same length")
+
+    target_embeddings = torch.stack(target_embeddings)
+    anchor_embeddings = torch.stack(anchor_embeddings)
+    if target_embeddings.shape != anchor_embeddings.shape:
+        raise ValueError(
+            f"Target and anchor embedding shapes must match, got "
+            f"{target_embeddings.shape} and {anchor_embeddings.shape}"
+        )
+
+    sum_target_target = torch.stack([
+        target_embs.T @ target_embs for target_embs in target_embeddings
+    ]).mean(0)
+
+    if anchor_mode == "legacy":
+        sum_anchor_target = torch.stack([
+            anchor_embs.T @ target_embs
+            for target_embs, anchor_embs in zip(target_embeddings, anchor_embeddings)
+        ]).mean(0)
+        target_anchor_delta = sum_anchor_target - sum_target_target
+        residuals = anchor_embeddings - target_embeddings
+    elif anchor_mode == "shared_residual":
+        shared_residual = anchor_embeddings.mean(0) - target_embeddings.mean(0)
+        residuals = shared_residual.unsqueeze(0).expand_as(target_embeddings)
+        target_anchor_delta = shared_residual.T @ target_embeddings.mean(0)
+    else:
+        raise ValueError(f"Invalid anchor mode: {anchor_mode}")
+
+    residual_matrix = residuals.reshape(-1, residuals.shape[-1]).float()
+    delta_singular_values = torch.linalg.svdvals(target_anchor_delta.float())
+    max_singular_value = delta_singular_values.max()
+    rank_tolerance = max(target_anchor_delta.shape) * torch.finfo(delta_singular_values.dtype).eps * max_singular_value
+    diagnostics = {
+        "max_residual_deviation": (residuals - residuals[[0]]).abs().max().item(),
+        "residual_rank": torch.linalg.matrix_rank(residual_matrix).item(),
+        "edit_statistic_rank": (delta_singular_values > rank_tolerance).sum().item(),
+        "edit_statistic_singular_values": delta_singular_values[:5].tolist(),
+    }
+    return sum_target_target, target_anchor_delta, diagnostics
+
+
 def generate_perturbed_embs(ret_embs, P, erase_weight, num_per_sample, mini_batch=8):
     ret_embs = ret_embs.squeeze(1)
     out_embs, norm_list = [], []
@@ -52,7 +95,7 @@ def edit_model(args, pipeline, target_concepts, anchor_concepts, retain_texts, b
         raise ValueError("Invalid baseline")
 
     # region [Target and Anchor]
-    sum_anchor_target, sum_target_target = [], []
+    target_embeddings, anchor_embeddings = [], []
     for i in range(0, len(target_concepts)):
         target_inputs = get_token_id(target_concepts[i], pipeline.tokenizer, return_ids_only=False)
         target_embs = pipeline.text_encoder(target_inputs.input_ids.to(device)).last_hidden_state[0]
@@ -64,9 +107,21 @@ def edit_model(args, pipeline, target_concepts, anchor_concepts, retain_texts, b
         else:
             target_embs = target_embs[[(target_inputs.attention_mask[0].sum().item() - 2)], :]  # last subject token
             anchor_embs = anchor_embs[[(anchor_inputs.attention_mask[0].sum().item() - 2)], :]  # last subject token
-        sum_target_target.append(target_embs.T @ target_embs)
-        sum_anchor_target.append(anchor_embs.T @ target_embs)
-    sum_target_target, sum_anchor_target = torch.stack(sum_target_target).mean(0), torch.stack(sum_anchor_target).mean(0)
+        target_embeddings.append(target_embs)
+        anchor_embeddings.append(anchor_embs)
+    anchor_mode = getattr(args, 'anchor_mode', 'legacy')
+    sum_target_target, target_anchor_delta, anchor_diagnostics = build_target_anchor_statistics(
+        target_embeddings,
+        anchor_embeddings,
+        anchor_mode=anchor_mode,
+    )
+    print(
+        f"Anchor mode: {anchor_mode} | "
+        f"max residual deviation: {anchor_diagnostics['max_residual_deviation']:.3e} | "
+        f"residual rank: {anchor_diagnostics['residual_rank']} | "
+        f"edit statistic rank: {anchor_diagnostics['edit_statistic_rank']}"
+    )
+    print(f"Top edit statistic singular values: {anchor_diagnostics['edit_statistic_singular_values']}")
     # endregion
 
     # region [Retain]
@@ -87,7 +142,7 @@ def edit_model(args, pipeline, target_concepts, anchor_concepts, retain_texts, b
 
     for (layer_name, layer_weight) in tqdm(edit_dict.items(), desc="Model Editing"):
 
-        erase_weight = layer_weight @ (sum_anchor_target - sum_target_target) @ (I + sum_target_target).inverse()
+        erase_weight = layer_weight @ target_anchor_delta @ (I + sum_target_target).inverse()
         (U0, S0, V0) = torch.svd(layer_weight)
         P0_min = V0[:, -1:] @ V0[:, -1:].T
 
@@ -112,7 +167,7 @@ def edit_model(args, pipeline, target_concepts, anchor_concepts, retain_texts, b
             U, S, V = torch.svd(sum_ret_ret)
             P = U[:, S < args.threshold] @ U[:, S < args.threshold].T
             M = (sum_target_target @ P + args.retain_scale * I).inverse()
-            delta_weight = layer_weight @ (sum_anchor_target - sum_target_target) @ P @ (I - M @ K2 @ (K2.T @ P @ M @ K2 + args.lamb * I2).inverse() @ K2.T @ P) @ M
+            delta_weight = layer_weight @ target_anchor_delta @ P @ (I - M @ K2 @ (K2.T @ P @ M @ K2 + args.lamb * I2).inverse() @ K2.T @ P) @ M
 
         # Save edited weights
         edit_dict[layer_name] = layer_weight + delta_weight
@@ -132,6 +187,12 @@ if __name__ == '__main__':
     # Erase Config
     parser.add_argument('--target_concepts', type=str, required=True)
     parser.add_argument('--anchor_concepts', type=str, required=True)
+    parser.add_argument(
+        '--anchor_mode',
+        choices=['legacy', 'shared_residual'],
+        default='legacy',
+        help='Use prompt anchors directly or construct virtual anchors with one shared residual',
+    )
     parser.add_argument('--retain_path', type=str, default=None)
     parser.add_argument('--heads', type=str, default=None)
     parser.add_argument('--baseline', type=str, default='SPEED')
@@ -161,6 +222,8 @@ if __name__ == '__main__':
     else:
         assert len(target_concepts) == len(anchor_concepts)
         file_suffix += f'-to_{anchor_concepts[0]}_etc'
+    if args.anchor_mode == 'shared_residual':
+        file_suffix += '-shared_residual'
 
     retain_texts = []
     if retain_path is not None:
