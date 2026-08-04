@@ -40,6 +40,13 @@ def build_target_anchor_statistics(
     ]).mean(0)
     selected_residual_index = None
     selected_residual_norm = None
+    positive_sign_count = None
+    negative_sign_count = None
+    selected_medoid_index = None
+    selected_medoid_norm = None
+    selected_medoid_score = None
+    selected_medoid_similarity = None
+    shared_residual_target_index = None
 
     if anchor_mode == "legacy":
         residuals = anchor_embeddings - target_embeddings
@@ -53,8 +60,55 @@ def build_target_anchor_statistics(
             dim=1,
         )
         selected_residual_index = candidate_residual_norms.argmax().item()
+        shared_residual_target_index = selected_residual_index
         shared_residual_max_norm = candidate_residuals[selected_residual_index]
         residuals = shared_residual_max_norm.unsqueeze(0).expand_as(target_embeddings)
+    elif anchor_mode in [
+        "shared_residual_cosine_medoid",
+        "shared_residual_abs_cosine_medoid",
+    ]:
+        candidate_residuals = anchor_embeddings - target_embeddings
+        flattened_residuals = candidate_residuals.reshape(
+            candidate_residuals.shape[0], -1
+        ).float()
+        residual_norms = torch.linalg.vector_norm(flattened_residuals, dim=1, keepdim=True)
+        normalized_residuals = flattened_residuals / residual_norms.clamp_min(
+            torch.finfo(flattened_residuals.dtype).eps
+        )
+        cosine_similarity = normalized_residuals @ normalized_residuals.T
+        if anchor_mode == "shared_residual_abs_cosine_medoid":
+            cosine_similarity = cosine_similarity.abs()
+            selected_medoid_similarity = "absolute cosine"
+        else:
+            selected_medoid_similarity = "cosine"
+
+        if candidate_residuals.shape[0] > 1:
+            mean_similarity = (
+                cosine_similarity.sum(dim=1) - cosine_similarity.diagonal()
+            ) / (candidate_residuals.shape[0] - 1)
+        else:
+            mean_similarity = cosine_similarity.diagonal()
+
+        selected_medoid_index = mean_similarity.argmax().item()
+        shared_residual_target_index = selected_medoid_index
+        selected_medoid_score = mean_similarity[selected_medoid_index].item()
+        shared_residual_medoid = candidate_residuals[selected_medoid_index]
+        residuals = shared_residual_medoid.unsqueeze(0).expand_as(target_embeddings)
+    elif anchor_mode == "shared_residual_sign_aligned":
+        candidate_residuals = anchor_embeddings - target_embeddings
+        shared_residual = candidate_residuals.mean(0)
+        residual_dots = (
+            candidate_residuals * shared_residual.unsqueeze(0)
+        ).reshape(candidate_residuals.shape[0], -1).sum(dim=1)
+        residual_signs = torch.where(
+            residual_dots < 0,
+            -torch.ones_like(residual_dots),
+            torch.ones_like(residual_dots),
+        )
+        sign_shape = [residual_signs.shape[0]] + [1] * shared_residual.ndim
+        residuals = residual_signs.reshape(sign_shape) * shared_residual.unsqueeze(0)
+        positive_sign_count = (residual_signs > 0).sum().item()
+        negative_sign_count = (residual_signs < 0).sum().item()
     else:
         raise ValueError(f"Invalid anchor mode: {anchor_mode}")
 
@@ -66,6 +120,10 @@ def build_target_anchor_statistics(
     if selected_residual_index is not None:
         selected_residual_norm = torch.linalg.vector_norm(
             residuals[selected_residual_index].reshape(-1)
+        ).item()
+    if selected_medoid_index is not None:
+        selected_medoid_norm = torch.linalg.vector_norm(
+            residuals[selected_medoid_index].reshape(-1)
         ).item()
 
     residual_matrix = residuals.reshape(-1, residuals.shape[-1]).float()
@@ -80,6 +138,13 @@ def build_target_anchor_statistics(
         "selected_residual_index": selected_residual_index,
         "selected_residual_norm": selected_residual_norm,
         "residual_scale": residual_scale,
+        "positive_sign_count": positive_sign_count,
+        "negative_sign_count": negative_sign_count,
+        "selected_medoid_index": selected_medoid_index,
+        "selected_medoid_norm": selected_medoid_norm,
+        "selected_medoid_score": selected_medoid_score,
+        "selected_medoid_similarity": selected_medoid_similarity,
+        "shared_residual_target_index": shared_residual_target_index,
     }
     return sum_target_target, target_anchor_delta, diagnostics
 
@@ -149,12 +214,31 @@ def edit_model(args, pipeline, target_concepts, anchor_concepts, retain_texts, b
         f"edit statistic rank: {anchor_diagnostics['edit_statistic_rank']}"
     )
     print(f"Top edit statistic singular values: {anchor_diagnostics['edit_statistic_singular_values']}")
+    if anchor_mode not in ["legacy", "shared_residual_mean"]:
+        shared_target_index = anchor_diagnostics["shared_residual_target_index"]
+        if shared_target_index is None:
+            print("Shared residual source: mean residual (no single target prompt)")
+        else:
+            print(
+                f"Shared residual source target: target[{shared_target_index}]="
+                f"{target_concepts[shared_target_index]!r}"
+            )
     if anchor_diagnostics["selected_residual_index"] is not None:
-        selected_index = anchor_diagnostics["selected_residual_index"]
         print(
-            f"Selected max-norm residual: target[{selected_index}]="
-            f"{target_concepts[selected_index]!r} | "
-            f"norm: {anchor_diagnostics['selected_residual_norm']:.6f}"
+            f"Selected max-norm residual norm: "
+            f"{anchor_diagnostics['selected_residual_norm']:.6f}"
+        )
+    if anchor_diagnostics["positive_sign_count"] is not None:
+        print(
+            f"Sign-aligned residual pairs: "
+            f"+1.0={anchor_diagnostics['positive_sign_count']} | "
+            f"-1.0={anchor_diagnostics['negative_sign_count']}"
+        )
+    if anchor_diagnostics["selected_medoid_index"] is not None:
+        print(
+            f"Selected {anchor_diagnostics['selected_medoid_similarity']} medoid residual: "
+            f"mean similarity: {anchor_diagnostics['selected_medoid_score']:.6f} | "
+            f"norm: {anchor_diagnostics['selected_medoid_norm']:.6f}"
         )
     # endregion
 
@@ -223,7 +307,14 @@ if __name__ == '__main__':
     parser.add_argument('--anchor_concepts', type=str, required=True)
     parser.add_argument(
         '--anchor_mode',
-        choices=['legacy', 'shared_residual_mean', 'shared_residual_max_norm'],
+        choices=[
+            'legacy',
+            'shared_residual_mean',
+            'shared_residual_max_norm',
+            'shared_residual_sign_aligned',
+            'shared_residual_cosine_medoid',
+            'shared_residual_abs_cosine_medoid',
+        ],
         default='legacy',
         help='Use prompt anchors directly, a mean residual, or the maximum-norm residual',
     )
@@ -268,6 +359,12 @@ if __name__ == '__main__':
         file_suffix += '-shared_residual_mean'
     elif args.anchor_mode == 'shared_residual_max_norm':
         file_suffix += '-shared_residual_max_norm'
+    elif args.anchor_mode == 'shared_residual_sign_aligned':
+        file_suffix += '-shared_residual_sign_aligned'
+    elif args.anchor_mode == 'shared_residual_cosine_medoid':
+        file_suffix += '-shared_residual_cosine_medoid'
+    elif args.anchor_mode == 'shared_residual_abs_cosine_medoid':
+        file_suffix += '-shared_residual_abs_cosine_medoid'
     if args.residual_scale != 1.0:
         file_suffix += f'-residual_scale_{args.residual_scale:g}'
 
