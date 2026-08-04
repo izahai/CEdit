@@ -21,6 +21,7 @@ def build_target_anchor_statistics(
     anchor_embeddings,
     anchor_mode="legacy",
     residual_scale=1.0,
+    residual_rank=1,
 ):
     if not target_embeddings or len(target_embeddings) != len(anchor_embeddings):
         raise ValueError("Target and anchor embeddings must be non-empty and have the same length")
@@ -47,6 +48,9 @@ def build_target_anchor_statistics(
     selected_medoid_score = None
     selected_medoid_similarity = None
     shared_residual_target_index = None
+    truncated_svd_requested_rank = None
+    truncated_svd_explained_energy = None
+    truncated_svd_relative_error = None
 
     if anchor_mode == "legacy":
         residuals = anchor_embeddings - target_embeddings
@@ -115,6 +119,51 @@ def build_target_anchor_statistics(
         residuals = residual_signs.reshape(sign_shape) * shared_residual.unsqueeze(0)
         positive_sign_count = (residual_signs > 0).sum().item()
         negative_sign_count = (residual_signs < 0).sum().item()
+    elif anchor_mode == "truncated_svd_residual":
+        if (
+            not isinstance(residual_rank, (int, np.integer))
+            or isinstance(residual_rank, (bool, np.bool_))
+            or residual_rank <= 0
+        ):
+            raise ValueError(f"Residual rank must be a positive integer, got {residual_rank}")
+
+        candidate_residuals = anchor_embeddings - target_embeddings
+        flattened_residuals = candidate_residuals.reshape(
+            candidate_residuals.shape[0], -1
+        ).float()
+        max_residual_rank = min(flattened_residuals.shape)
+        if residual_rank > max_residual_rank:
+            raise ValueError(
+                f"Residual rank {residual_rank} exceeds the maximum possible rank "
+                f"{max_residual_rank} for residual matrix shape "
+                f"{tuple(flattened_residuals.shape)}"
+            )
+
+        u, singular_values, vh = torch.linalg.svd(
+            flattened_residuals,
+            full_matrices=False,
+        )
+        truncated_residuals = (
+            u[:, :residual_rank] * singular_values[:residual_rank]
+        ) @ vh[:residual_rank]
+        residual_energy = singular_values.square().sum()
+        retained_energy = singular_values[:residual_rank].square().sum()
+        if residual_energy > 0:
+            truncated_svd_explained_energy = (
+                retained_energy / residual_energy
+            ).item()
+            truncated_svd_relative_error = (
+                torch.linalg.vector_norm(flattened_residuals - truncated_residuals)
+                / torch.linalg.vector_norm(flattened_residuals)
+            ).item()
+        else:
+            truncated_svd_explained_energy = 1.0
+            truncated_svd_relative_error = 0.0
+
+        truncated_svd_requested_rank = int(residual_rank)
+        residuals = truncated_residuals.reshape_as(candidate_residuals).to(
+            candidate_residuals.dtype
+        )
     else:
         raise ValueError(f"Invalid anchor mode: {anchor_mode}")
 
@@ -151,6 +200,9 @@ def build_target_anchor_statistics(
         "selected_medoid_score": selected_medoid_score,
         "selected_medoid_similarity": selected_medoid_similarity,
         "shared_residual_target_index": shared_residual_target_index,
+        "truncated_svd_requested_rank": truncated_svd_requested_rank,
+        "truncated_svd_explained_energy": truncated_svd_explained_energy,
+        "truncated_svd_relative_error": truncated_svd_relative_error,
     }
     return sum_target_target, target_anchor_delta, diagnostics
 
@@ -211,6 +263,7 @@ def edit_model(args, pipeline, target_concepts, anchor_concepts, retain_texts, b
         anchor_embeddings,
         anchor_mode=anchor_mode,
         residual_scale=getattr(args, 'residual_scale', 1.0),
+        residual_rank=getattr(args, 'residual_rank', 1),
     )
     print(
         f"Anchor mode: {anchor_mode} | "
@@ -220,7 +273,9 @@ def edit_model(args, pipeline, target_concepts, anchor_concepts, retain_texts, b
         f"edit statistic rank: {anchor_diagnostics['edit_statistic_rank']}"
     )
     print(f"Top edit statistic singular values: {anchor_diagnostics['edit_statistic_singular_values']}")
-    if anchor_mode not in ["legacy", "shared_residual_mean"]:
+    if anchor_mode == "truncated_svd_residual":
+        print("Residual source: truncated SVD of all target-anchor pairs")
+    elif anchor_mode not in ["legacy", "shared_residual_mean"]:
         shared_target_index = anchor_diagnostics["shared_residual_target_index"]
         if shared_target_index is None:
             print("Shared residual source: mean residual (no single target prompt)")
@@ -245,6 +300,16 @@ def edit_model(args, pipeline, target_concepts, anchor_concepts, retain_texts, b
             f"Selected {anchor_diagnostics['selected_medoid_similarity']} medoid residual: "
             f"mean similarity: {anchor_diagnostics['selected_medoid_score']:.6f} | "
             f"norm: {anchor_diagnostics['selected_medoid_norm']:.6f}"
+        )
+    if anchor_diagnostics["truncated_svd_requested_rank"] is not None:
+        print(
+            f"Truncated-SVD residual: requested rank="
+            f"{anchor_diagnostics['truncated_svd_requested_rank']} | "
+            f"effective rank={anchor_diagnostics['residual_rank']} | "
+            f"explained energy="
+            f"{anchor_diagnostics['truncated_svd_explained_energy']:.6f} | "
+            f"relative reconstruction error="
+            f"{anchor_diagnostics['truncated_svd_relative_error']:.6f}"
         )
     # endregion
 
@@ -321,9 +386,10 @@ if __name__ == '__main__':
             'shared_residual_cosine_medoid',
             'shared_residual_abs_cosine_medoid',
             'shared_residual_smallest_cosine_medoid',
+            'truncated_svd_residual',
         ],
         default='legacy',
-        help='Use prompt anchors directly, a mean residual, or the maximum-norm residual',
+        help='Strategy used to construct target-anchor residuals',
     )
     parser.add_argument('--retain_path', type=str, default=None)
     parser.add_argument('--heads', type=str, default=None)
@@ -339,15 +405,31 @@ if __name__ == '__main__':
         default=1.0,
         help='Scale target-to-anchor residuals before computing edit statistics',
     )
+    parser.add_argument(
+        '--residual_rank',
+        type=int,
+        default=1,
+        help='Rank retained by truncated_svd_residual',
+    )
     parser.add_argument('--lamb', type=float, default=0.0)
     parser.add_argument('--disable_filter', action='store_true', default=False)
     args = parser.parse_args()
     if not np.isfinite(args.residual_scale) or args.residual_scale <= 0:
         parser.error('--residual_scale must be a positive finite value')
+    if args.residual_rank <= 0:
+        parser.error('--residual_rank must be a positive integer')
     device = torch.device("cuda")
     seed_everything(args.seed)
 
     target_concepts = [con.strip() for con in args.target_concepts.split(',')]
+    if (
+        args.anchor_mode == 'truncated_svd_residual'
+        and args.residual_rank > len(target_concepts)
+    ):
+        parser.error(
+            f'--residual_rank cannot exceed the number of target concepts '
+            f'({len(target_concepts)})'
+        )
     anchor_concepts = args.anchor_concepts
     retain_path = args.retain_path
     
@@ -374,6 +456,8 @@ if __name__ == '__main__':
         file_suffix += '-shared_residual_abs_cosine_medoid'
     elif args.anchor_mode == 'shared_residual_smallest_cosine_medoid':
         file_suffix += '-shared_residual_smallest_cosine_medoid'
+    elif args.anchor_mode == 'truncated_svd_residual':
+        file_suffix += f'-truncated_svd_residual_rank_{args.residual_rank}'
     if args.residual_scale != 1.0:
         file_suffix += f'-residual_scale_{args.residual_scale:g}'
 

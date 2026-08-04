@@ -30,6 +30,8 @@ nên có rank tối đa bằng 1.
      similarity cao nhất với các residual còn lại.
    - `shared_residual_smallest_cosine_medoid`: chọn residual gốc có mean cosine
      similarity thấp nhất với các residual còn lại.
+   - `truncated_svd_residual`: xấp xỉ ma trận residual legacy bằng truncated SVD
+     với rank được chọn qua `--residual_rank`.
 2. Encode tất cả target và reference anchor trước khi tính statistics.
 3. Tính residual chung:
 
@@ -81,6 +83,19 @@ Mode `shared_residual_smallest_cosine_medoid` dùng cùng cosine score nhưng ch
 lại của tập. Residual được chọn vẫn giữ nguyên norm gốc trước khi áp dụng
 `residual_scale`.
 
+Với `truncated_svd_residual`, các residual legacy được xếp thành ma trận
+$R \in \mathbb{R}^{N \times d}$ và phân rã $R = U\Sigma V^T$. Mode giữ lại
+$k$ thành phần singular lớn nhất:
+
+```text
+R_k = U[:, :k] @ diag(S[:k]) @ Vh[:k, :]
+```
+
+Mỗi target vẫn có residual riêng là một hàng của $R_k$, nhưng toàn bộ residual
+nằm trong không gian con có rank không vượt quá `--residual_rank k`. Với rank 1,
+các residual dùng chung một hướng nhưng vẫn giữ hệ số scale và dấu riêng theo
+từng cặp target-anchor. Log báo explained energy và relative reconstruction error.
+
 Các mode chọn một residual gốc (`shared_residual_max_norm` và hai cosine-medoid
 mode) sẽ log index và prompt target cung cấp shared residual. Mode
 `shared_residual_sign_aligned` dùng residual mean nên log rõ rằng không có một target
@@ -100,6 +115,8 @@ edit statistic và diagnostics.
 
 - Kiểm tra mọi `a_i - t_i` bằng nhau trong sai số floating-point.
 - In singular values/rank của residual matrix và edit statistic.
+- Với truncated SVD, kiểm tra rank không vượt quá `--residual_rank`, full-rank
+  reconstruction khớp legacy và `residual_scale` vẫn scale statistic tuyến tính.
 - Smoke test với 10 celebrities, so sánh `legacy person`, `shared_residual_mean person`,
   `shared_residual_max_norm person`, `shared_residual_sign_aligned person`, và
   `legacy null`.
