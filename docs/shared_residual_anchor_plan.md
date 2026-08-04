@@ -20,7 +20,8 @@ nên có rank tối đa bằng 1.
 
 1. Thêm `--anchor_mode` vào `train_erase_null.py`:
    - `legacy`: giữ nguyên cách tính hiện tại.
-   - `shared_residual`: sử dụng virtual anchor embedding.
+   - `shared_residual_mean`: sử dụng virtual anchor embedding dựa trên mean embedding.
+   - `shared_residual_max_norm`: chọn residual có L2 norm lớn nhất và dùng nó cho mọi target.
 2. Encode tất cả target và reference anchor trước khi tính statistics.
 3. Tính residual chung:
 
@@ -32,11 +33,23 @@ nên có rank tối đa bằng 1.
 4. Tạo virtual anchor cho từng target bằng `a_i = t_i + r`.
 5. Giữ nguyên retain projection và công thức cập nhật weight của SPEED.
 
+Với `shared_residual_max_norm`, residual chung được chọn theo:
+
+```text
+r_i = anchor_i - target_i
+k = argmax_i ||r_i||_2
+r = r_k
+```
+
+Nếu embedding gồm nhiều token, `||r_i||_2` được tính trên embedding đã flatten,
+tương đương Frobenius norm của ma trận embedding.
+
 ## Kiểm chứng
 
 - Kiểm tra mọi `a_i - t_i` bằng nhau trong sai số floating-point.
 - In singular values/rank của residual matrix và edit statistic.
-- Smoke test với 10 celebrities, so sánh `legacy person`, `shared_residual person`, và `legacy null`.
+- Smoke test với 10 celebrities, so sánh `legacy person`, `shared_residual_mean person`,
+  `shared_residual_max_norm person`, và `legacy null`.
 - Sample cùng seed để đánh giá khả năng xóa identity và mức ảnh hưởng tới retain concepts.
 
 ## Lưu ý

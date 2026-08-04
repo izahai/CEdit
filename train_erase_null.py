@@ -31,6 +31,8 @@ def build_target_anchor_statistics(target_embeddings, anchor_embeddings, anchor_
     sum_target_target = torch.stack([
         target_embs.T @ target_embs for target_embs in target_embeddings
     ]).mean(0)
+    selected_residual_index = None
+    selected_residual_norm = None
 
     if anchor_mode == "legacy":
         sum_anchor_target = torch.stack([
@@ -39,10 +41,21 @@ def build_target_anchor_statistics(target_embeddings, anchor_embeddings, anchor_
         ]).mean(0)
         target_anchor_delta = sum_anchor_target - sum_target_target
         residuals = anchor_embeddings - target_embeddings
-    elif anchor_mode == "shared_residual":
-        shared_residual = anchor_embeddings.mean(0) - target_embeddings.mean(0)
-        residuals = shared_residual.unsqueeze(0).expand_as(target_embeddings)
-        target_anchor_delta = shared_residual.T @ target_embeddings.mean(0)
+    elif anchor_mode == "shared_residual_mean":
+        shared_residual_mean = anchor_embeddings.mean(0) - target_embeddings.mean(0)
+        residuals = shared_residual_mean.unsqueeze(0).expand_as(target_embeddings)
+        target_anchor_delta = shared_residual_mean.T @ target_embeddings.mean(0)
+    elif anchor_mode == "shared_residual_max_norm":
+        candidate_residuals = anchor_embeddings - target_embeddings
+        candidate_residual_norms = torch.linalg.vector_norm(
+            candidate_residuals.reshape(candidate_residuals.shape[0], -1),
+            dim=1,
+        )
+        selected_residual_index = candidate_residual_norms.argmax().item()
+        selected_residual_norm = candidate_residual_norms[selected_residual_index].item()
+        shared_residual_max_norm = candidate_residuals[selected_residual_index]
+        residuals = shared_residual_max_norm.unsqueeze(0).expand_as(target_embeddings)
+        target_anchor_delta = shared_residual_max_norm.T @ target_embeddings.mean(0)
     else:
         raise ValueError(f"Invalid anchor mode: {anchor_mode}")
 
@@ -55,6 +68,8 @@ def build_target_anchor_statistics(target_embeddings, anchor_embeddings, anchor_
         "residual_rank": torch.linalg.matrix_rank(residual_matrix).item(),
         "edit_statistic_rank": (delta_singular_values > rank_tolerance).sum().item(),
         "edit_statistic_singular_values": delta_singular_values[:5].tolist(),
+        "selected_residual_index": selected_residual_index,
+        "selected_residual_norm": selected_residual_norm,
     }
     return sum_target_target, target_anchor_delta, diagnostics
 
@@ -122,6 +137,13 @@ def edit_model(args, pipeline, target_concepts, anchor_concepts, retain_texts, b
         f"edit statistic rank: {anchor_diagnostics['edit_statistic_rank']}"
     )
     print(f"Top edit statistic singular values: {anchor_diagnostics['edit_statistic_singular_values']}")
+    if anchor_diagnostics["selected_residual_index"] is not None:
+        selected_index = anchor_diagnostics["selected_residual_index"]
+        print(
+            f"Selected max-norm residual: target[{selected_index}]="
+            f"{target_concepts[selected_index]!r} | "
+            f"norm: {anchor_diagnostics['selected_residual_norm']:.6f}"
+        )
     # endregion
 
     # region [Retain]
@@ -189,9 +211,9 @@ if __name__ == '__main__':
     parser.add_argument('--anchor_concepts', type=str, required=True)
     parser.add_argument(
         '--anchor_mode',
-        choices=['legacy', 'shared_residual'],
+        choices=['legacy', 'shared_residual_mean', 'shared_residual_max_norm'],
         default='legacy',
-        help='Use prompt anchors directly or construct virtual anchors with one shared residual',
+        help='Use prompt anchors directly, a mean residual, or the maximum-norm residual',
     )
     parser.add_argument('--retain_path', type=str, default=None)
     parser.add_argument('--heads', type=str, default=None)
@@ -222,8 +244,10 @@ if __name__ == '__main__':
     else:
         assert len(target_concepts) == len(anchor_concepts)
         file_suffix += f'-to_{anchor_concepts[0]}_etc'
-    if args.anchor_mode == 'shared_residual':
-        file_suffix += '-shared_residual'
+    if args.anchor_mode == 'shared_residual_mean':
+        file_suffix += '-shared_residual_mean'
+    elif args.anchor_mode == 'shared_residual_max_norm':
+        file_suffix += '-shared_residual_max_norm'
 
     retain_texts = []
     if retain_path is not None:
