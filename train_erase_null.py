@@ -25,8 +25,8 @@ def build_target_anchor_statistics(
 ):
     if not target_embeddings or len(target_embeddings) != len(anchor_embeddings):
         raise ValueError("Target and anchor embeddings must be non-empty and have the same length")
-    if not np.isfinite(residual_scale) or residual_scale <= 0:
-        raise ValueError(f"Residual scale must be a positive finite value, got {residual_scale}")
+    if not np.isfinite(residual_scale):
+        raise ValueError(f"Residual scale must be finite, got {residual_scale}")
 
     target_embeddings = torch.stack(target_embeddings)
     anchor_embeddings = torch.stack(anchor_embeddings)
@@ -41,8 +41,6 @@ def build_target_anchor_statistics(
     ]).mean(0)
     selected_residual_index = None
     selected_residual_norm = None
-    positive_sign_count = None
-    negative_sign_count = None
     selected_medoid_index = None
     selected_medoid_norm = None
     selected_medoid_score = None
@@ -104,21 +102,6 @@ def build_target_anchor_statistics(
         selected_medoid_score = mean_similarity[selected_medoid_index].item()
         shared_residual_medoid = candidate_residuals[selected_medoid_index]
         residuals = shared_residual_medoid.unsqueeze(0).expand_as(target_embeddings)
-    elif anchor_mode == "shared_residual_sign_aligned":
-        candidate_residuals = anchor_embeddings - target_embeddings
-        shared_residual = candidate_residuals.mean(0)
-        residual_dots = (
-            candidate_residuals * shared_residual.unsqueeze(0)
-        ).reshape(candidate_residuals.shape[0], -1).sum(dim=1)
-        residual_signs = torch.where(
-            residual_dots < 0,
-            -torch.ones_like(residual_dots),
-            torch.ones_like(residual_dots),
-        )
-        sign_shape = [residual_signs.shape[0]] + [1] * shared_residual.ndim
-        residuals = residual_signs.reshape(sign_shape) * shared_residual.unsqueeze(0)
-        positive_sign_count = (residual_signs > 0).sum().item()
-        negative_sign_count = (residual_signs < 0).sum().item()
     elif anchor_mode == "truncated_svd_residual":
         if (
             not isinstance(residual_rank, (int, np.integer))
@@ -193,8 +176,6 @@ def build_target_anchor_statistics(
         "selected_residual_index": selected_residual_index,
         "selected_residual_norm": selected_residual_norm,
         "residual_scale": residual_scale,
-        "positive_sign_count": positive_sign_count,
-        "negative_sign_count": negative_sign_count,
         "selected_medoid_index": selected_medoid_index,
         "selected_medoid_norm": selected_medoid_norm,
         "selected_medoid_score": selected_medoid_score,
@@ -289,12 +270,6 @@ def edit_model(args, pipeline, target_concepts, anchor_concepts, retain_texts, b
             f"Selected max-norm residual norm: "
             f"{anchor_diagnostics['selected_residual_norm']:.6f}"
         )
-    if anchor_diagnostics["positive_sign_count"] is not None:
-        print(
-            f"Sign-aligned residual pairs: "
-            f"+1.0={anchor_diagnostics['positive_sign_count']} | "
-            f"-1.0={anchor_diagnostics['negative_sign_count']}"
-        )
     if anchor_diagnostics["selected_medoid_index"] is not None:
         print(
             f"Selected {anchor_diagnostics['selected_medoid_similarity']} medoid residual: "
@@ -382,7 +357,6 @@ if __name__ == '__main__':
             'legacy',
             'shared_residual_mean',
             'shared_residual_max_norm',
-            'shared_residual_sign_aligned',
             'shared_residual_cosine_medoid',
             'shared_residual_abs_cosine_medoid',
             'shared_residual_smallest_cosine_medoid',
@@ -414,8 +388,8 @@ if __name__ == '__main__':
     parser.add_argument('--lamb', type=float, default=0.0)
     parser.add_argument('--disable_filter', action='store_true', default=False)
     args = parser.parse_args()
-    if not np.isfinite(args.residual_scale) or args.residual_scale <= 0:
-        parser.error('--residual_scale must be a positive finite value')
+    if not np.isfinite(args.residual_scale):
+        parser.error('--residual_scale must be finite')
     if args.residual_rank <= 0:
         parser.error('--residual_rank must be a positive integer')
     device = torch.device("cuda")
@@ -448,8 +422,6 @@ if __name__ == '__main__':
         file_suffix += '-shared_residual_mean'
     elif args.anchor_mode == 'shared_residual_max_norm':
         file_suffix += '-shared_residual_max_norm'
-    elif args.anchor_mode == 'shared_residual_sign_aligned':
-        file_suffix += '-shared_residual_sign_aligned'
     elif args.anchor_mode == 'shared_residual_cosine_medoid':
         file_suffix += '-shared_residual_cosine_medoid'
     elif args.anchor_mode == 'shared_residual_abs_cosine_medoid':
