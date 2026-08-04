@@ -28,6 +28,8 @@ nên có rank tối đa bằng 1.
      cao nhất với các residual còn lại.
    - `shared_residual_abs_cosine_medoid`: chọn residual gốc có mean absolute cosine
      similarity cao nhất với các residual còn lại.
+   - `shared_residual_smallest_cosine_medoid`: chọn residual gốc có mean cosine
+     similarity thấp nhất với các residual còn lại.
 2. Encode tất cả target và reference anchor trước khi tính statistics.
 3. Tính residual chung:
 
@@ -73,6 +75,11 @@ score_i = mean_{j != i}(cosine(r_i, r_j))
 Mode `shared_residual_abs_cosine_medoid` thay `cosine` bằng `abs(cosine)`. Residual
 gốc có score cao nhất được dùng chung cho mọi target; hai mode này không tự động đảo
 dấu residual cho từng cặp.
+
+Mode `shared_residual_smallest_cosine_medoid` dùng cùng cosine score nhưng chọn
+`argmin` thay vì `argmax`, vì vậy nó ưu tiên residual ít tương đồng nhất với phần còn
+lại của tập. Residual được chọn vẫn giữ nguyên norm gốc trước khi áp dụng
+`residual_scale`.
 
 Các mode chọn một residual gốc (`shared_residual_max_norm` và hai cosine-medoid
 mode) sẽ log index và prompt target cung cấp shared residual. Mode

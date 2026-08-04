@@ -66,6 +66,7 @@ def build_target_anchor_statistics(
     elif anchor_mode in [
         "shared_residual_cosine_medoid",
         "shared_residual_abs_cosine_medoid",
+        "shared_residual_smallest_cosine_medoid",
     ]:
         candidate_residuals = anchor_embeddings - target_embeddings
         flattened_residuals = candidate_residuals.reshape(
@@ -79,6 +80,8 @@ def build_target_anchor_statistics(
         if anchor_mode == "shared_residual_abs_cosine_medoid":
             cosine_similarity = cosine_similarity.abs()
             selected_medoid_similarity = "absolute cosine"
+        elif anchor_mode == "shared_residual_smallest_cosine_medoid":
+            selected_medoid_similarity = "smallest cosine"
         else:
             selected_medoid_similarity = "cosine"
 
@@ -89,7 +92,10 @@ def build_target_anchor_statistics(
         else:
             mean_similarity = cosine_similarity.diagonal()
 
-        selected_medoid_index = mean_similarity.argmax().item()
+        if anchor_mode == "shared_residual_smallest_cosine_medoid":
+            selected_medoid_index = mean_similarity.argmin().item()
+        else:
+            selected_medoid_index = mean_similarity.argmax().item()
         shared_residual_target_index = selected_medoid_index
         selected_medoid_score = mean_similarity[selected_medoid_index].item()
         shared_residual_medoid = candidate_residuals[selected_medoid_index]
@@ -314,6 +320,7 @@ if __name__ == '__main__':
             'shared_residual_sign_aligned',
             'shared_residual_cosine_medoid',
             'shared_residual_abs_cosine_medoid',
+            'shared_residual_smallest_cosine_medoid',
         ],
         default='legacy',
         help='Use prompt anchors directly, a mean residual, or the maximum-norm residual',
@@ -365,6 +372,8 @@ if __name__ == '__main__':
         file_suffix += '-shared_residual_cosine_medoid'
     elif args.anchor_mode == 'shared_residual_abs_cosine_medoid':
         file_suffix += '-shared_residual_abs_cosine_medoid'
+    elif args.anchor_mode == 'shared_residual_smallest_cosine_medoid':
+        file_suffix += '-shared_residual_smallest_cosine_medoid'
     if args.residual_scale != 1.0:
         file_suffix += f'-residual_scale_{args.residual_scale:g}'
 
