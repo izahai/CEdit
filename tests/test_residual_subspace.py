@@ -76,6 +76,7 @@ class SmallestCosineSubspaceResidualTests(unittest.TestCase):
         )
 
         torch.testing.assert_close(residuals, legacy)
+        self.assertEqual(diagnostics["subspace_target_projection_fallback_count"], 2)
         self.assertEqual(diagnostics["subspace_legacy_fallback_count"], 2)
         self.assertEqual(diagnostics["subspace_basis_fallback_count"], 0)
 
@@ -90,6 +91,7 @@ class SmallestCosineSubspaceResidualTests(unittest.TestCase):
         )
 
         self.assertEqual(diagnostics["subspace_selected_indices"], [0])
+        self.assertEqual(diagnostics["subspace_target_projection_fallback_count"], 2)
         self.assertEqual(diagnostics["subspace_basis_fallback_count"], 1)
         self.assertEqual(residuals[1].norm().item(), 0.0)
 

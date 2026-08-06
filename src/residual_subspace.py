@@ -124,6 +124,9 @@ def build_smallest_cosine_subspace_residuals(
         "subspace_new_cosine_mean": new_cosines.mean().item(),
         "subspace_max_norm_error": norm_errors.max().item(),
         "subspace_max_projection_error": subspace_errors.max().item(),
+        "subspace_target_projection_fallback_count": int(
+            (~target_projection_mask).sum().item()
+        ),
         "subspace_legacy_fallback_count": int(legacy_fallback_mask.sum().item()),
         "subspace_basis_fallback_count": int(basis_fallback_mask.sum().item()),
     }

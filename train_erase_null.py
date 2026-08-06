@@ -379,6 +379,16 @@ def edit_model(args, pipeline, target_concepts, anchor_concepts, retain_texts, b
         # Save edited weights
         edit_dict[layer_name] = layer_weight + delta_weight
 
+    if anchor_mode == "smallest_cosine_subspace":
+        print(
+            "Smallest-cosine subspace fallback summary after training: "
+            f"target projection near zero="
+            f"{anchor_diagnostics['subspace_target_projection_fallback_count']} | "
+            f"used projected legacy residual="
+            f"{anchor_diagnostics['subspace_legacy_fallback_count']} | "
+            f"used first basis vector="
+            f"{anchor_diagnostics['subspace_basis_fallback_count']}"
+        )
     print(f"Current model status: Edited {str(target_concepts)} into {str(anchor_concepts)}")
     return edit_dict
 
