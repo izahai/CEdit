@@ -87,6 +87,28 @@ class TargetAnchorStatisticsTests(unittest.TestCase):
         self.assertEqual(diagnostics["residual_scale"], 2.5)
         self.assertEqual(diagnostics["subspace_requested_top_k"], 2)
 
+    def test_largest_anchor_mode_exposes_anchor_cosine_diagnostics(self):
+        targets = [
+            torch.tensor([[3.0, 4.0, 1.0]]),
+            torch.tensor([[2.0, -1.0, 2.0]]),
+        ]
+        legacy = [
+            torch.tensor([[2.0, 0.0, 0.0]]),
+            torch.tensor([[0.0, 3.0, 0.0]]),
+        ]
+        anchors = [target + residual for target, residual in zip(targets, legacy)]
+
+        _, _, diagnostics = build_target_anchor_statistics(
+            targets,
+            anchors,
+            anchor_mode="largest_anchor_cosine_subspace",
+            residual_top_k=2,
+        )
+
+        self.assertEqual(diagnostics["subspace_requested_top_k"], 2)
+        self.assertIn("subspace_new_anchor_cosine_mean", diagnostics)
+        self.assertEqual(diagnostics["subspace_anchor_projection_fallback_count"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

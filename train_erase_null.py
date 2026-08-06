@@ -8,7 +8,10 @@ import pandas as pd
 from tqdm import tqdm
 from kmeans_pytorch import kmeans
 from diffusers import StableDiffusionPipeline
-from src.residual_subspace import build_smallest_cosine_subspace_residuals
+from src.residual_subspace import (
+    build_largest_anchor_cosine_subspace_residuals,
+    build_smallest_cosine_subspace_residuals,
+)
 from src.utils import seed_everything
 
 
@@ -158,6 +161,14 @@ def build_target_anchor_statistics(
                 top_k=residual_top_k,
             )
         )
+    elif anchor_mode == "largest_anchor_cosine_subspace":
+        residuals, subspace_diagnostics = (
+            build_largest_anchor_cosine_subspace_residuals(
+                target_embeddings,
+                anchor_embeddings,
+                top_k=residual_top_k,
+            )
+        )
     else:
         raise ValueError(f"Invalid anchor mode: {anchor_mode}")
 
@@ -267,11 +278,14 @@ def edit_model(args, pipeline, target_concepts, anchor_concepts, retain_texts, b
         f"edit statistic rank: {anchor_diagnostics['edit_statistic_rank']}"
     )
     print(f"Top edit statistic singular values: {anchor_diagnostics['edit_statistic_singular_values']}")
-    if anchor_mode == "smallest_cosine_subspace":
+    if anchor_mode in [
+        "smallest_cosine_subspace",
+        "largest_anchor_cosine_subspace",
+    ]:
         selected_indices = anchor_diagnostics["subspace_selected_indices"]
         selected_targets = [target_concepts[index] for index in selected_indices]
         print(
-            f"Smallest-cosine subspace: requested top-k="
+            f"Residual subspace: requested top-k="
             f"{anchor_diagnostics['subspace_requested_top_k']} | "
             f"effective rank={anchor_diagnostics['subspace_effective_rank']} | "
             f"selected indices={selected_indices} | "
@@ -283,11 +297,22 @@ def edit_model(args, pipeline, target_concepts, anchor_concepts, retain_texts, b
             f"subspace singular values: "
             f"{anchor_diagnostics['subspace_singular_values']}"
         )
+        if anchor_mode == "smallest_cosine_subspace":
+            print(
+                f"Mean cos(target, target + residual): legacy="
+                f"{anchor_diagnostics['subspace_legacy_cosine_mean']:.6f} | "
+                f"projected={anchor_diagnostics['subspace_new_cosine_mean']:.6f}"
+            )
+        else:
+            print(
+                f"Mean cos(anchor, target + residual): legacy="
+                f"{anchor_diagnostics['subspace_legacy_anchor_cosine_mean']:.6f} | "
+                f"projected="
+                f"{anchor_diagnostics['subspace_new_anchor_cosine_mean']:.6f}"
+            )
         print(
-            f"Mean cos(target, target + residual): legacy="
-            f"{anchor_diagnostics['subspace_legacy_cosine_mean']:.6f} | "
-            f"projected={anchor_diagnostics['subspace_new_cosine_mean']:.6f} | "
-            f"max norm error={anchor_diagnostics['subspace_max_norm_error']:.3e} | "
+            f"Residual invariants: max norm error="
+            f"{anchor_diagnostics['subspace_max_norm_error']:.3e} | "
             f"max subspace error="
             f"{anchor_diagnostics['subspace_max_projection_error']:.3e}"
         )
@@ -389,6 +414,16 @@ def edit_model(args, pipeline, target_concepts, anchor_concepts, retain_texts, b
             f"used first basis vector="
             f"{anchor_diagnostics['subspace_basis_fallback_count']}"
         )
+    elif anchor_mode == "largest_anchor_cosine_subspace":
+        print(
+            "Largest-anchor-cosine subspace fallback summary after training: "
+            f"anchor projection near zero="
+            f"{anchor_diagnostics['subspace_anchor_projection_fallback_count']} | "
+            f"used projected legacy residual="
+            f"{anchor_diagnostics['subspace_legacy_fallback_count']} | "
+            f"used first basis vector="
+            f"{anchor_diagnostics['subspace_basis_fallback_count']}"
+        )
     print(f"Current model status: Edited {str(target_concepts)} into {str(anchor_concepts)}")
     return edit_dict
 
@@ -415,6 +450,7 @@ if __name__ == '__main__':
             'shared_residual_smallest_cosine_medoid',
             'truncated_svd_residual',
             'smallest_cosine_subspace',
+            'largest_anchor_cosine_subspace',
         ],
         default='legacy',
         help='Strategy used to construct target-anchor residuals',
@@ -467,7 +503,10 @@ if __name__ == '__main__':
             f'({len(target_concepts)})'
         )
     if (
-        args.anchor_mode == 'smallest_cosine_subspace'
+        args.anchor_mode in [
+            'smallest_cosine_subspace',
+            'largest_anchor_cosine_subspace',
+        ]
         and args.residual_top_k > len(target_concepts)
     ):
         parser.error(
@@ -502,6 +541,8 @@ if __name__ == '__main__':
         file_suffix += f'-truncated_svd_residual_rank_{args.residual_rank}'
     elif args.anchor_mode == 'smallest_cosine_subspace':
         file_suffix += f'-smallest_cosine_subspace_top_k_{args.residual_top_k}'
+    elif args.anchor_mode == 'largest_anchor_cosine_subspace':
+        file_suffix += f'-largest_anchor_cosine_subspace_top_k_{args.residual_top_k}'
     if args.residual_scale != 1.0:
         file_suffix += f'-residual_scale_{args.residual_scale:g}'
 

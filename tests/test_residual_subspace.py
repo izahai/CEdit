@@ -2,7 +2,10 @@ import unittest
 
 import torch
 
-from src.residual_subspace import build_smallest_cosine_subspace_residuals
+from src.residual_subspace import (
+    build_largest_anchor_cosine_subspace_residuals,
+    build_smallest_cosine_subspace_residuals,
+)
 
 
 class SmallestCosineSubspaceResidualTests(unittest.TestCase):
@@ -131,6 +134,63 @@ class SmallestCosineSubspaceResidualTests(unittest.TestCase):
             build_smallest_cosine_subspace_residuals(targets, anchors, top_k=3)
         with self.assertRaisesRegex(ValueError, "zero-rank"):
             build_smallest_cosine_subspace_residuals(targets, anchors, top_k=2)
+
+
+class LargestAnchorCosineSubspaceResidualTests(unittest.TestCase):
+    def test_uses_positive_anchor_projection_and_preserves_legacy_norm(self):
+        targets = torch.tensor(
+            [
+                [[3.0, 4.0, 7.0]],
+                [[2.0, -1.0, 5.0]],
+            ]
+        )
+        legacy = torch.tensor(
+            [
+                [[2.0, 0.0, 0.0]],
+                [[0.0, 3.0, 0.0]],
+            ]
+        )
+        anchors = targets + legacy
+
+        residuals, diagnostics = (
+            build_largest_anchor_cosine_subspace_residuals(
+                targets,
+                anchors,
+                top_k=2,
+            )
+        )
+
+        expected = torch.tensor(
+            [
+                [[10.0 / torch.sqrt(torch.tensor(41.0)), 8.0 / torch.sqrt(torch.tensor(41.0)), 0.0]],
+                [[3.0 / torch.sqrt(torch.tensor(2.0)), 3.0 / torch.sqrt(torch.tensor(2.0)), 0.0]],
+            ]
+        )
+        torch.testing.assert_close(residuals, expected)
+        torch.testing.assert_close(
+            residuals.flatten(1).norm(dim=1),
+            legacy.flatten(1).norm(dim=1),
+        )
+        self.assertLess(diagnostics["subspace_max_projection_error"], 1e-6)
+        self.assertEqual(diagnostics["subspace_anchor_projection_fallback_count"], 0)
+
+    def test_falls_back_to_projected_legacy_when_anchor_projection_is_zero(self):
+        target = torch.tensor([[[-2.0, 0.0, 3.0]]])
+        legacy = torch.tensor([[[2.0, 0.0, 0.0]]])
+        anchor = target + legacy
+
+        residuals, diagnostics = (
+            build_largest_anchor_cosine_subspace_residuals(
+                target,
+                anchor,
+                top_k=1,
+            )
+        )
+
+        torch.testing.assert_close(residuals, legacy)
+        self.assertEqual(diagnostics["subspace_anchor_projection_fallback_count"], 1)
+        self.assertEqual(diagnostics["subspace_legacy_fallback_count"], 1)
+        self.assertEqual(diagnostics["subspace_basis_fallback_count"], 0)
 
 
 if __name__ == "__main__":

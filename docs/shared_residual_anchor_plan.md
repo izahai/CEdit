@@ -126,6 +126,30 @@ python train_erase_null.py \
   --heads concept
 ```
 
+Mode `largest_anchor_cosine_subspace` dùng cùng cách chọn top-k và cùng residual
+subspace, nhưng hướng riêng cho mỗi cặp được lấy từ positive projection của anchor:
+
+```text
+q_i = B^T B a_i
+u_i = q_i / ||q_i||
+r_i_new = ||r_i_legacy|| u_i
+```
+
+Mục tiêu heuristic là làm `target + residual` gần hướng anchor gốc hơn. Nếu anchor
+projection gần zero, mode dùng normalized projection của residual legacy; nếu cả hai
+đều gần zero, mode dùng basis vector đầu tiên. Sau khi train, log in tổng số fallback
+của từng loại.
+
+```bash
+python train_erase_null.py \
+  --target_concepts "concept_a,concept_b,concept_c" \
+  --anchor_concepts "person" \
+  --anchor_mode largest_anchor_cosine_subspace \
+  --residual_top_k 2 \
+  --retain_path data/instance.csv \
+  --heads concept
+```
+
 ## Kiểm chứng
 
 - Kiểm tra mọi `a_i - t_i` bằng nhau trong sai số floating-point.
