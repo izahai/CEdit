@@ -5,6 +5,7 @@ import torch
 import argparse
 import numpy as np
 import pandas as pd
+import yaml
 from tqdm import tqdm
 from kmeans_pytorch import kmeans
 from diffusers import StableDiffusionPipeline
@@ -13,6 +14,127 @@ from src.residual_subspace import (
     build_smallest_cosine_subspace_residuals,
 )
 from src.utils import seed_everything
+
+
+ANCHOR_MODES = [
+    'legacy',
+    'shared_residual_mean',
+    'shared_residual_max_norm',
+    'shared_residual_cosine_medoid',
+    'shared_residual_abs_cosine_medoid',
+    'shared_residual_smallest_cosine_medoid',
+    'truncated_svd_residual',
+    'smallest_cosine_subspace',
+    'largest_anchor_cosine_subspace',
+]
+
+
+def build_argument_parser():
+    parser = argparse.ArgumentParser(
+        description='Erase concepts from Stable Diffusion using SPEED',
+    )
+    parser.add_argument(
+        '--config',
+        type=str,
+        default=None,
+        help='YAML config file. Explicit CLI arguments override YAML values.',
+    )
+    # Base Config
+    parser.add_argument('--sd_ckpt', help='base version for stable diffusion', type=str, default='CompVis/stable-diffusion-v1-4')
+    parser.add_argument('--save_path', type=str, default=None)
+    parser.add_argument('--file_name', type=str, default=None)
+    parser.add_argument('--seed', type=int, default=0)
+    # Erase Config
+    parser.add_argument('--target_concepts', type=str, default=None)
+    parser.add_argument('--anchor_concepts', type=str, default=None)
+    parser.add_argument(
+        '--anchor_mode',
+        choices=ANCHOR_MODES,
+        default='legacy',
+        help='Strategy used to construct target-anchor residuals',
+    )
+    parser.add_argument('--retain_path', type=str, default=None)
+    parser.add_argument('--heads', type=str, default=None)
+    parser.add_argument('--baseline', type=str, default='SPEED')
+    # Hyperparameters
+    parser.add_argument('--params', type=str, default='V')
+    parser.add_argument('--aug_num', type=int, default=10)
+    parser.add_argument('--threshold', type=float, default=1e-1)
+    parser.add_argument('--retain_scale', type=float, default=1.0)
+    parser.add_argument(
+        '--residual_scale',
+        type=float,
+        default=1.0,
+        help='Scale target-to-anchor residuals before computing edit statistics',
+    )
+    parser.add_argument(
+        '--residual_rank',
+        type=int,
+        default=1,
+        help='Rank retained by truncated_svd_residual',
+    )
+    parser.add_argument(
+        '--residual_top_k',
+        type=int,
+        default=1,
+        help='Number of smallest-mean-cosine residuals used to build the subspace',
+    )
+    parser.add_argument('--lamb', type=float, default=0.0)
+    parser.add_argument('--disable_filter', action='store_true', default=False)
+    return parser
+
+
+def load_yaml_config(config_path, parser):
+    with open(config_path, 'r', encoding='utf-8') as config_file:
+        config = yaml.safe_load(config_file) or {}
+    if not isinstance(config, dict):
+        parser.error(f'YAML config must contain a mapping, got {type(config).__name__}')
+
+    valid_keys = {
+        action.dest
+        for action in parser._actions
+        if action.dest not in {'config', 'help'}
+    }
+    unknown_keys = sorted(set(config) - valid_keys)
+    if unknown_keys:
+        parser.error(f'Unknown YAML config key(s): {", ".join(unknown_keys)}')
+    return {
+        key: os.path.expandvars(value) if isinstance(value, str) else value
+        for key, value in config.items()
+    }
+
+
+def parse_args(argv=None):
+    parser = build_argument_parser()
+    config_parser = argparse.ArgumentParser(add_help=False)
+    config_parser.add_argument('--config', type=str, default=None)
+    config_args, _ = config_parser.parse_known_args(argv)
+    if config_args.config:
+        parser.set_defaults(**load_yaml_config(config_args.config, parser))
+    args = parser.parse_args(argv)
+    for action in parser._actions:
+        value = getattr(args, action.dest, None)
+        if action.choices is not None and value not in action.choices:
+            parser.error(
+                f'{action.dest} must be one of: {", ".join(action.choices)}'
+            )
+    return parser, args
+
+
+def normalize_concepts(value, name, allow_empty=False):
+    if isinstance(value, str):
+        concepts = value.split(',')
+    elif isinstance(value, list):
+        concepts = value
+    else:
+        raise ValueError(f'{name} must be a comma-separated string or a YAML list')
+
+    if not all(isinstance(concept, str) for concept in concepts):
+        raise ValueError(f'Every item in {name} must be a string')
+    concepts = [concept.strip() for concept in concepts]
+    if not concepts or (not allow_empty and any(not concept for concept in concepts)):
+        raise ValueError(f'{name} must contain at least one non-empty concept')
+    return concepts
 
 
 def get_token_id(prompt, tokenizer=None, return_ids_only=True):
@@ -429,61 +551,22 @@ def edit_model(args, pipeline, target_concepts, anchor_concepts, retain_texts, b
 
 
 if __name__ == '__main__':
-
-    parser = argparse.ArgumentParser()
-    # Base Config
-    parser.add_argument('--sd_ckpt', help='base version for stable diffusion', type=str, default='CompVis/stable-diffusion-v1-4')
-    parser.add_argument('--save_path', type=str, default=None)
-    parser.add_argument('--file_name', type=str, default=None)
-    parser.add_argument('--seed', type=int, default=0)
-    # Erase Config
-    parser.add_argument('--target_concepts', type=str, required=True)
-    parser.add_argument('--anchor_concepts', type=str, required=True)
-    parser.add_argument(
-        '--anchor_mode',
-        choices=[
-            'legacy',
-            'shared_residual_mean',
-            'shared_residual_max_norm',
-            'shared_residual_cosine_medoid',
-            'shared_residual_abs_cosine_medoid',
-            'shared_residual_smallest_cosine_medoid',
-            'truncated_svd_residual',
-            'smallest_cosine_subspace',
-            'largest_anchor_cosine_subspace',
-        ],
-        default='legacy',
-        help='Strategy used to construct target-anchor residuals',
-    )
-    parser.add_argument('--retain_path', type=str, default=None)
-    parser.add_argument('--heads', type=str, default=None)
-    parser.add_argument('--baseline', type=str, default='SPEED')
-    # Hyperparameters
-    parser.add_argument('--params', type=str, default='V')
-    parser.add_argument('--aug_num', type=int, default=10)
-    parser.add_argument('--threshold', type=float, default=1e-1)
-    parser.add_argument('--retain_scale', type=float, default=1.0)
-    parser.add_argument(
-        '--residual_scale',
-        type=float,
-        default=1.0,
-        help='Scale target-to-anchor residuals before computing edit statistics',
-    )
-    parser.add_argument(
-        '--residual_rank',
-        type=int,
-        default=1,
-        help='Rank retained by truncated_svd_residual',
-    )
-    parser.add_argument(
-        '--residual_top_k',
-        type=int,
-        default=1,
-        help='Number of smallest-mean-cosine residuals used to build the subspace',
-    )
-    parser.add_argument('--lamb', type=float, default=0.0)
-    parser.add_argument('--disable_filter', action='store_true', default=False)
-    args = parser.parse_args()
+    parser, args = parse_args()
+    if args.target_concepts is None:
+        parser.error('target_concepts is required in the YAML config or CLI')
+    if args.anchor_concepts is None:
+        parser.error('anchor_concepts is required in the YAML config or CLI')
+    if args.retain_path is not None and args.heads is None:
+        parser.error('heads is required when retain_path is set')
+    try:
+        target_concepts = normalize_concepts(args.target_concepts, 'target_concepts')
+        anchor_concepts = normalize_concepts(
+            args.anchor_concepts,
+            'anchor_concepts',
+            allow_empty=True,
+        )
+    except ValueError as error:
+        parser.error(str(error))
     if not np.isfinite(args.residual_scale):
         parser.error('--residual_scale must be finite')
     if args.residual_rank <= 0:
@@ -493,7 +576,6 @@ if __name__ == '__main__':
     device = torch.device("cuda")
     seed_everything(args.seed)
 
-    target_concepts = [con.strip() for con in args.target_concepts.split(',')]
     if (
         args.anchor_mode == 'truncated_svd_residual'
         and args.residual_rank > len(target_concepts)
@@ -513,11 +595,9 @@ if __name__ == '__main__':
             f'--residual_top_k cannot exceed the number of target concepts '
             f'({len(target_concepts)})'
         )
-    anchor_concepts = args.anchor_concepts
     retain_path = args.retain_path
     
     file_suffix = "_".join(target_concepts[:5]) + f"_{len(target_concepts)}"  # The filename only displays the first 5 target concepts in multi-concept erasure
-    anchor_concepts = [x.strip() for x in anchor_concepts.split(',')]
     if len(anchor_concepts) == 1:
         anchor_concepts = anchor_concepts * len(target_concepts)
         if anchor_concepts[0] == "":

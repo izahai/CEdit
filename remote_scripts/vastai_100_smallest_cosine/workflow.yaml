@@ -1,0 +1,26 @@
+# Runtime used by every workflow step.
+runtime:
+  python_bin: /venv/main/bin/python
+  gpu_id: 0
+
+# Source repositories used by 00_clone_repositories.sh.
+repositories:
+  cedit_branch: main
+  cedit_repository: https://github.com/izahai/CEdit.git
+  ce_eval_repository: https://github.com/izahai/CE-Eval.git
+  ce_eval_branch: main
+
+# Sampling and evaluation settings. Training-specific settings are in train.yaml.
+experiment:
+  sd_ckpt: CompVis/stable-diffusion-v1-4
+  benchmark_name: 100_celebrity
+  anchor_mode: smallest_cosine_subspace
+  batch_size: 10
+  expected_image_count: 500
+  gcd_use_cuda: true
+
+# ${WORKSPACE_DIR} is calculated by common.sh. Override OUTPUT_ROOT at runtime
+# when a Vast persistent volume is mounted elsewhere.
+paths:
+  ce_eval_root: ${WORKSPACE_DIR}/CE-Eval
+  output_root: ${WORKSPACE_DIR}/cedit_ce_eval_outputs_100_celebrity_smallest_cosine_top_k

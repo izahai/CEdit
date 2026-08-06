@@ -1,0 +1,28 @@
+# Base model and reproducibility
+sd_ckpt: CompVis/stable-diffusion-v1-4
+seed: 0
+
+# Concept erasure
+target_concepts:
+  - Snoopy
+anchor_concepts:
+  - ""  # Empty string means erasing toward the null prompt.
+anchor_mode: legacy
+retain_path: data/instance.csv
+heads: concept
+baseline: SPEED
+
+# Editing hyperparameters
+params: V
+aug_num: 10
+threshold: 0.1
+retain_scale: 1.0
+residual_scale: 1.0
+residual_rank: 1
+residual_top_k: 1
+lamb: 0.0
+disable_filter: false
+
+# Output checkpoint
+save_path: logs/checkpoints/snoopy
+file_name: weight
