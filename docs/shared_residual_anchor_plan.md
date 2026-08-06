@@ -97,6 +97,35 @@ trị âm đảo hướng residual, còn `0` tạo edit statistic bằng không.
 sau khi mode đã tạo residual riêng/chung, nhưng trước khi tính edit statistic và
 diagnostics.
 
+## Smallest-cosine residual subspace
+
+Mode `smallest_cosine_subspace` chấm điểm từng residual legacy bằng mean cosine
+với tất cả residual còn lại, rồi chọn `--residual_top_k k` score nhỏ nhất để dựng
+subspace bằng SVD. Với target $t_i$, mode project target lên subspace mà không tạo
+projection matrix đầy đủ:
+
+```text
+q_i = B^T B t_i
+u_i = -q_i / ||q_i||
+r_i_new = ||r_i_legacy|| u_i
+```
+
+Nếu target projection bằng zero, mode dùng normalized projection của residual legacy
+lên subspace. Nếu projection đó cũng bằng zero, mode dùng basis vector đầu tiên.
+`residual_scale` được áp dụng sau khi residual mới đã match norm legacy.
+
+Ví dụ:
+
+```bash
+python train_erase_null.py \
+  --target_concepts "concept_a,concept_b,concept_c" \
+  --anchor_concepts "" \
+  --anchor_mode smallest_cosine_subspace \
+  --residual_top_k 2 \
+  --retain_path data/instance.csv \
+  --heads concept
+```
+
 ## Kiểm chứng
 
 - Kiểm tra mọi `a_i - t_i` bằng nhau trong sai số floating-point.

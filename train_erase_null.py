@@ -8,6 +8,7 @@ import pandas as pd
 from tqdm import tqdm
 from kmeans_pytorch import kmeans
 from diffusers import StableDiffusionPipeline
+from src.residual_subspace import build_smallest_cosine_subspace_residuals
 from src.utils import seed_everything
 
 
@@ -22,6 +23,7 @@ def build_target_anchor_statistics(
     anchor_mode="legacy",
     residual_scale=1.0,
     residual_rank=1,
+    residual_top_k=1,
 ):
     if not target_embeddings or len(target_embeddings) != len(anchor_embeddings):
         raise ValueError("Target and anchor embeddings must be non-empty and have the same length")
@@ -49,6 +51,7 @@ def build_target_anchor_statistics(
     truncated_svd_requested_rank = None
     truncated_svd_explained_energy = None
     truncated_svd_relative_error = None
+    subspace_diagnostics = {}
 
     if anchor_mode == "legacy":
         residuals = anchor_embeddings - target_embeddings
@@ -147,6 +150,14 @@ def build_target_anchor_statistics(
         residuals = truncated_residuals.reshape_as(candidate_residuals).to(
             candidate_residuals.dtype
         )
+    elif anchor_mode == "smallest_cosine_subspace":
+        residuals, subspace_diagnostics = (
+            build_smallest_cosine_subspace_residuals(
+                target_embeddings,
+                anchor_embeddings,
+                top_k=residual_top_k,
+            )
+        )
     else:
         raise ValueError(f"Invalid anchor mode: {anchor_mode}")
 
@@ -185,6 +196,7 @@ def build_target_anchor_statistics(
         "truncated_svd_explained_energy": truncated_svd_explained_energy,
         "truncated_svd_relative_error": truncated_svd_relative_error,
     }
+    diagnostics.update(subspace_diagnostics)
     return sum_target_target, target_anchor_delta, diagnostics
 
 
@@ -245,6 +257,7 @@ def edit_model(args, pipeline, target_concepts, anchor_concepts, retain_texts, b
         anchor_mode=anchor_mode,
         residual_scale=getattr(args, 'residual_scale', 1.0),
         residual_rank=getattr(args, 'residual_rank', 1),
+        residual_top_k=getattr(args, 'residual_top_k', 1),
     )
     print(
         f"Anchor mode: {anchor_mode} | "
@@ -254,7 +267,37 @@ def edit_model(args, pipeline, target_concepts, anchor_concepts, retain_texts, b
         f"edit statistic rank: {anchor_diagnostics['edit_statistic_rank']}"
     )
     print(f"Top edit statistic singular values: {anchor_diagnostics['edit_statistic_singular_values']}")
-    if anchor_mode == "truncated_svd_residual":
+    if anchor_mode == "smallest_cosine_subspace":
+        selected_indices = anchor_diagnostics["subspace_selected_indices"]
+        selected_targets = [target_concepts[index] for index in selected_indices]
+        print(
+            f"Smallest-cosine subspace: requested top-k="
+            f"{anchor_diagnostics['subspace_requested_top_k']} | "
+            f"effective rank={anchor_diagnostics['subspace_effective_rank']} | "
+            f"selected indices={selected_indices} | "
+            f"selected targets={selected_targets}"
+        )
+        print(
+            f"Selected mean-cosine scores: "
+            f"{anchor_diagnostics['subspace_selected_scores']} | "
+            f"subspace singular values: "
+            f"{anchor_diagnostics['subspace_singular_values']}"
+        )
+        print(
+            f"Mean cos(target, target + residual): legacy="
+            f"{anchor_diagnostics['subspace_legacy_cosine_mean']:.6f} | "
+            f"projected={anchor_diagnostics['subspace_new_cosine_mean']:.6f} | "
+            f"max norm error={anchor_diagnostics['subspace_max_norm_error']:.3e} | "
+            f"max subspace error="
+            f"{anchor_diagnostics['subspace_max_projection_error']:.3e}"
+        )
+        print(
+            f"Subspace fallbacks: projected legacy="
+            f"{anchor_diagnostics['subspace_legacy_fallback_count']} | "
+            f"first basis vector="
+            f"{anchor_diagnostics['subspace_basis_fallback_count']}"
+        )
+    elif anchor_mode == "truncated_svd_residual":
         print("Residual source: truncated SVD of all target-anchor pairs")
     elif anchor_mode not in ["legacy", "shared_residual_mean"]:
         shared_target_index = anchor_diagnostics["shared_residual_target_index"]
@@ -361,6 +404,7 @@ if __name__ == '__main__':
             'shared_residual_abs_cosine_medoid',
             'shared_residual_smallest_cosine_medoid',
             'truncated_svd_residual',
+            'smallest_cosine_subspace',
         ],
         default='legacy',
         help='Strategy used to construct target-anchor residuals',
@@ -385,6 +429,12 @@ if __name__ == '__main__':
         default=1,
         help='Rank retained by truncated_svd_residual',
     )
+    parser.add_argument(
+        '--residual_top_k',
+        type=int,
+        default=1,
+        help='Number of smallest-mean-cosine residuals used to build the subspace',
+    )
     parser.add_argument('--lamb', type=float, default=0.0)
     parser.add_argument('--disable_filter', action='store_true', default=False)
     args = parser.parse_args()
@@ -392,6 +442,8 @@ if __name__ == '__main__':
         parser.error('--residual_scale must be finite')
     if args.residual_rank <= 0:
         parser.error('--residual_rank must be a positive integer')
+    if args.residual_top_k <= 0:
+        parser.error('--residual_top_k must be a positive integer')
     device = torch.device("cuda")
     seed_everything(args.seed)
 
@@ -402,6 +454,14 @@ if __name__ == '__main__':
     ):
         parser.error(
             f'--residual_rank cannot exceed the number of target concepts '
+            f'({len(target_concepts)})'
+        )
+    if (
+        args.anchor_mode == 'smallest_cosine_subspace'
+        and args.residual_top_k > len(target_concepts)
+    ):
+        parser.error(
+            f'--residual_top_k cannot exceed the number of target concepts '
             f'({len(target_concepts)})'
         )
     anchor_concepts = args.anchor_concepts
@@ -430,6 +490,8 @@ if __name__ == '__main__':
         file_suffix += '-shared_residual_smallest_cosine_medoid'
     elif args.anchor_mode == 'truncated_svd_residual':
         file_suffix += f'-truncated_svd_residual_rank_{args.residual_rank}'
+    elif args.anchor_mode == 'smallest_cosine_subspace':
+        file_suffix += f'-smallest_cosine_subspace_top_k_{args.residual_top_k}'
     if args.residual_scale != 1.0:
         file_suffix += f'-residual_scale_{args.residual_scale:g}'
 
