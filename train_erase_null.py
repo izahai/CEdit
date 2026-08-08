@@ -11,6 +11,7 @@ from kmeans_pytorch import kmeans
 from diffusers import StableDiffusionPipeline
 from src.residual_subspace import (
     build_largest_anchor_cosine_subspace_residuals,
+    build_negative_target_normalized_residual_subspace_residuals,
     build_smallest_cosine_subspace_residuals,
 )
 from src.utils import seed_everything
@@ -25,6 +26,7 @@ ANCHOR_MODES = [
     'shared_residual_smallest_cosine_medoid',
     'truncated_svd_residual',
     'smallest_cosine_subspace',
+    'negative_target_normalized_residual_subspace',
     'largest_anchor_cosine_subspace',
 ]
 
@@ -71,7 +73,7 @@ def build_argument_parser():
         '--residual_rank',
         type=int,
         default=1,
-        help='Rank retained by truncated_svd_residual',
+        help='Rank retained by truncated_svd_residual or negative_target_normalized_residual_subspace',
     )
     parser.add_argument(
         '--residual_top_k',
@@ -281,6 +283,14 @@ def build_target_anchor_statistics(
                 target_embeddings,
                 anchor_embeddings,
                 top_k=residual_top_k,
+            )
+        )
+    elif anchor_mode == "negative_target_normalized_residual_subspace":
+        residuals, subspace_diagnostics = (
+            build_negative_target_normalized_residual_subspace_residuals(
+                target_embeddings,
+                anchor_embeddings,
+                rank=residual_rank,
             )
         )
     elif anchor_mode == "largest_anchor_cosine_subspace":

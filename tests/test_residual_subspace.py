@@ -4,6 +4,7 @@ import torch
 
 from src.residual_subspace import (
     build_largest_anchor_cosine_subspace_residuals,
+    build_negative_target_normalized_residual_subspace_residuals,
     build_smallest_cosine_subspace_residuals,
 )
 
@@ -134,6 +135,29 @@ class SmallestCosineSubspaceResidualTests(unittest.TestCase):
             build_smallest_cosine_subspace_residuals(targets, anchors, top_k=3)
         with self.assertRaisesRegex(ValueError, "zero-rank"):
             build_smallest_cosine_subspace_residuals(targets, anchors, top_k=2)
+
+
+class NormalizedResidualSubspaceTests(unittest.TestCase):
+    def test_normalizes_residuals_before_svd_and_uses_requested_rank(self):
+        targets = torch.tensor(
+            [[[3.0, 4.0, 0.0]], [[0.0, 0.0, 5.0]], [[1.0, 0.0, 0.0]]]
+        )
+        legacy = torch.tensor(
+            [[[10.0, 0.0, 0.0]], [[0.0, 2.0, 0.0]], [[0.0, 0.0, 1.0]]]
+        )
+
+        residuals, diagnostics = build_negative_target_normalized_residual_subspace_residuals(
+            targets,
+            targets + legacy,
+            rank=2,
+        )
+
+        self.assertEqual(diagnostics["subspace_requested_rank"], 2)
+        self.assertEqual(diagnostics["subspace_effective_rank"], 3)
+        self.assertTrue(diagnostics["subspace_normalized_before_svd"])
+        torch.testing.assert_close(
+            residuals.flatten(1).norm(dim=1), legacy.flatten(1).norm(dim=1)
+        )
 
 
 class LargestAnchorCosineSubspaceResidualTests(unittest.TestCase):
