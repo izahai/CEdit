@@ -25,11 +25,9 @@ Then run the workflow:
 bash remote_scripts/vastai_100_smallest_cosine/00_clone_repositories.sh
 bash remote_scripts/vastai_100_smallest_cosine/01_setup_environment.sh
 bash remote_scripts/vastai_100_smallest_cosine/02_train.sh
-bash remote_scripts/vastai_100_smallest_cosine/03_infer_erase.sh
-bash remote_scripts/vastai_100_smallest_cosine/04_infer_retain.sh
+bash remote_scripts/vastai_100_smallest_cosine/03_infer.sh
 bash remote_scripts/vastai_100_smallest_cosine/05_setup_ce_eval.sh
-bash remote_scripts/vastai_100_smallest_cosine/06_eval_erase.sh
-bash remote_scripts/vastai_100_smallest_cosine/07_eval_retain.sh
+bash remote_scripts/vastai_100_smallest_cosine/06_eval.sh
 bash remote_scripts/vastai_100_smallest_cosine/08_summarize_results.sh
 bash remote_scripts/vastai_100_smallest_cosine/09_bundle_results.sh
 ```
@@ -39,8 +37,8 @@ completed artifact by default. Set one of these environment variables to rerun:
 
 ```bash
 FORCE_RETRAIN=1 bash remote_scripts/vastai_100_smallest_cosine/02_train.sh
-FORCE_RESAMPLE=1 bash remote_scripts/vastai_100_smallest_cosine/03_infer_erase.sh
-FORCE_EVAL=1 bash remote_scripts/vastai_100_smallest_cosine/06_eval_erase.sh
+FORCE_RESAMPLE=1 bash remote_scripts/vastai_100_smallest_cosine/03_infer.sh
+FORCE_EVAL=1 bash remote_scripts/vastai_100_smallest_cosine/06_eval.sh
 ```
 
 The training parameters and all 100 target concepts live in `train.yaml`. Edit
@@ -57,7 +55,7 @@ TRAIN_CONFIG=/path/to/another-train.yaml \
   bash remote_scripts/vastai_100_smallest_cosine/02_train.sh
 
 WORKFLOW_CONFIG=/path/to/another-workflow.yaml \
-  bash remote_scripts/vastai_100_smallest_cosine/03_infer_erase.sh
+  bash remote_scripts/vastai_100_smallest_cosine/03_infer.sh
 ```
 
 The `vastai/pytorch` image keeps PyTorch in `/venv/main/bin/python`, which is
