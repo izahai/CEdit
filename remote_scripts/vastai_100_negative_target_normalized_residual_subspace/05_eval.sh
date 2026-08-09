@@ -6,6 +6,7 @@ load_workflow_config
 
 require_directory "${CE_EVAL_ROOT}/celeb-detection-oss"
 mkdir -p "${GCD_OUTPUT_DIR}"
+TF_CUDA_LIBRARY_PATH="$(tensorflow_cuda_library_path)"
 
 for subspace_k in "${K_VALUES[@]}"; do
     image_root="$(image_root_for_k "${subspace_k}")"
@@ -27,6 +28,9 @@ for subspace_k in "${K_VALUES[@]}"; do
         EVALUATE_SCRIPT="${CE_EVAL_ROOT}/eval/evaluate_by_GCD.py" \
         GCD_USE_CUDA="${GCD_USE_CUDA}" \
         CUDA_VISIBLE_DEVICES="${GPU_ID}" \
+        TF_FORCE_GPU_ALLOW_GROWTH=true \
+        LD_LIBRARY_PATH="${TF_CUDA_LIBRARY_PATH}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" \
+        PATH="$(dirname -- "${PYTHON_BIN}"):${PATH}" \
         bash "${CE_EVAL_ROOT}/run/run_gcd_evaluation_colab.sh" \
             "${image_dir}" "${xlsx_path}" "${csv_path}" >"${log_path}" 2>&1
 

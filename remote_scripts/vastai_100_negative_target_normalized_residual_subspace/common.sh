@@ -55,3 +55,9 @@ image_root_for_k() {
 gcd_output_dir_for_k() {
     printf '%s/k_%s' "${GCD_OUTPUT_DIR}" "$1"
 }
+
+tensorflow_cuda_library_path() {
+    local site_packages
+    site_packages="$("${PYTHON_BIN}" -c 'import site; print(site.getsitepackages()[0])')"
+    find "${site_packages}/nvidia" -type d -name lib -print | sort | paste -sd: -
+}

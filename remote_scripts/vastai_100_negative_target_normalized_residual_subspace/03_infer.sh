@@ -29,7 +29,7 @@ for subspace_k in "${K_VALUES[@]}"; do
         contents="retain"
     fi
 
-    CUDA_VISIBLE_DEVICES="${GPU_ID}" "${PYTHON_BIN}" sample2.py \
+    USE_TF=0 TRANSFORMERS_NO_TF=1 CUDA_VISIBLE_DEVICES="${GPU_ID}" "${PYTHON_BIN}" sample2.py \
         --sd_ckpt "${SD_CKPT}" \
         --erase_type "${BENCHMARK_NAME}" \
         --target_concept "${BENCHMARK_NAME}" \

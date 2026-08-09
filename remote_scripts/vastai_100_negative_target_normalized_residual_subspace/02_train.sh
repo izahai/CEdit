@@ -32,7 +32,7 @@ for subspace_k in "${K_VALUES[@]}"; do
     fi
 
     mkdir -p "${CHECKPOINT_DIR}"
-    CUDA_VISIBLE_DEVICES="${GPU_ID}" "${PYTHON_BIN}" -u train_erase_null.py \
+    USE_TF=0 TRANSFORMERS_NO_TF=1 CUDA_VISIBLE_DEVICES="${GPU_ID}" "${PYTHON_BIN}" -u train_erase_null.py \
         --config "${TRAIN_CONFIG}"
     require_file "${CHECKPOINT_PATH}"
     printf 'k=%s training complete: %s\n' "${subspace_k}" "${CHECKPOINT_PATH}"
