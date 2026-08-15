@@ -22,10 +22,70 @@ def _install_optional_dependency_stubs():
 
 _install_optional_dependency_stubs()
 
-from train_erase_null import normalize_concepts, parse_args
+from train_erase_null import load_subspace_concepts, normalize_concepts, parse_args
 
 
 class TrainConfigTests(unittest.TestCase):
+    def test_target_global_mode_does_not_require_subspace_csv(self):
+        _, args = parse_args(
+            ["--anchor_mode", "target_global_pairwise_residual_subspace"]
+        )
+
+        self.assertEqual(
+            args.anchor_mode,
+            "target_global_pairwise_residual_subspace",
+        )
+        self.assertIsNone(args.subspace_concepts_path)
+
+    def test_global_mode_requires_explicit_subspace_csv(self):
+        with self.assertRaises(SystemExit):
+            parse_args(
+                ["--anchor_mode", "global_pairwise_residual_subspace"]
+            )
+
+        _, args = parse_args(
+            [
+                "--anchor_mode",
+                "global_pairwise_residual_subspace",
+                "--subspace_concepts_path",
+                "data/10_celebrity.csv",
+            ]
+        )
+        self.assertEqual(
+            args.subspace_concepts_path,
+            "data/10_celebrity.csv",
+        )
+
+    def test_loads_all_unique_subspace_concepts_regardless_of_type(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            csv_path = Path(temp_dir) / "concepts.csv"
+            csv_path.write_text(
+                "type,concept\n"
+                "erase,Ada\n"
+                "retain,Grace\n"
+                "retain,Ada\n",
+                encoding="utf-8",
+            )
+
+            concepts = load_subspace_concepts(csv_path)
+
+        self.assertEqual(concepts, ["Ada", "Grace"])
+
+    def test_rejects_invalid_subspace_concept_csvs(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            missing_column = Path(temp_dir) / "missing.csv"
+            missing_column.write_text("type,name\nerase,Ada\n", encoding="utf-8")
+            blank_concept = Path(temp_dir) / "blank.csv"
+            blank_concept.write_text("type,concept\nerase,\n", encoding="utf-8")
+            empty = Path(temp_dir) / "empty.csv"
+            empty.write_text("type,concept\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "concept.*column"):
+                load_subspace_concepts(missing_column)
+            with self.assertRaisesRegex(ValueError, "blank concept"):
+                load_subspace_concepts(blank_concept)
+            with self.assertRaisesRegex(ValueError, "no concepts"):
+                load_subspace_concepts(empty)
     def test_loads_yaml_lists_and_values(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "train.yaml"

@@ -1,3 +1,4 @@
+import csv
 import os, re, pdb
 # os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 import time
@@ -10,9 +11,11 @@ from tqdm import tqdm
 from kmeans_pytorch import kmeans
 from diffusers import StableDiffusionPipeline
 from src.residual_subspace import (
+    build_global_pairwise_residual_subspace_residuals,
     build_largest_anchor_cosine_subspace_residuals,
     build_negative_target_normalized_residual_subspace_residuals,
     build_smallest_cosine_subspace_residuals,
+    build_target_global_pairwise_residual_subspace_residuals,
 )
 from src.utils import seed_everything
 
@@ -27,8 +30,15 @@ ANCHOR_MODES = [
     'truncated_svd_residual',
     'smallest_cosine_subspace',
     'negative_target_normalized_residual_subspace',
+    'global_pairwise_residual_subspace',
+    'target_global_pairwise_residual_subspace',
     'largest_anchor_cosine_subspace',
 ]
+
+GLOBAL_PAIRWISE_ANCHOR_MODES = {
+    'global_pairwise_residual_subspace',
+    'target_global_pairwise_residual_subspace',
+}
 
 
 def build_argument_parser():
@@ -56,6 +66,15 @@ def build_argument_parser():
         help='Strategy used to construct target-anchor residuals',
     )
     parser.add_argument('--retain_path', type=str, default=None)
+    parser.add_argument(
+        '--subspace_concepts_path',
+        type=str,
+        default=None,
+        help=(
+            'CSV containing the concept column used by '
+            'global_pairwise_residual_subspace'
+        ),
+    )
     parser.add_argument('--heads', type=str, default=None)
     parser.add_argument('--baseline', type=str, default='SPEED')
     # Hyperparameters
@@ -73,7 +92,7 @@ def build_argument_parser():
         '--residual_rank',
         type=int,
         default=1,
-        help='Rank retained by truncated_svd_residual or negative_target_normalized_residual_subspace',
+        help='Rank retained by truncated-SVD residual subspace modes',
     )
     parser.add_argument(
         '--residual_top_k',
@@ -120,6 +139,14 @@ def parse_args(argv=None):
             parser.error(
                 f'{action.dest} must be one of: {", ".join(action.choices)}'
             )
+    if (
+        args.anchor_mode == 'global_pairwise_residual_subspace'
+        and not args.subspace_concepts_path
+    ):
+        parser.error(
+            '--subspace_concepts_path is required when --anchor_mode is '
+            'global_pairwise_residual_subspace'
+        )
     return parser, args
 
 
@@ -139,9 +166,58 @@ def normalize_concepts(value, name, allow_empty=False):
     return concepts
 
 
+def load_subspace_concepts(path):
+    concepts = []
+    seen = set()
+    with open(path, newline='', encoding='utf-8') as csv_file:
+        reader = csv.DictReader(csv_file)
+        if not reader.fieldnames or 'concept' not in reader.fieldnames:
+            raise ValueError(
+                f"Subspace concepts CSV must contain a 'concept' column: {path}"
+            )
+        for row_number, row in enumerate(reader, start=2):
+            raw_concept = row.get('concept')
+            concept = raw_concept.strip() if raw_concept is not None else ''
+            if not concept:
+                raise ValueError(
+                    f"Subspace concepts CSV contains a blank concept at row "
+                    f"{row_number}: {path}"
+                )
+            if concept not in seen:
+                seen.add(concept)
+                concepts.append(concept)
+    if not concepts:
+        raise ValueError(f'Subspace concepts CSV contains no concepts: {path}')
+    return concepts
+
+
 def get_token_id(prompt, tokenizer=None, return_ids_only=True):
     token_ids = tokenizer(prompt, padding="max_length", max_length=tokenizer.model_max_length, truncation=True, return_tensors="pt")
     return token_ids.input_ids if return_ids_only else token_ids
+
+
+def encode_last_subject_embeddings(pipeline, concepts, device, chunk_size=128):
+    embeddings = []
+    for start in range(0, len(concepts), chunk_size):
+        inputs = get_token_id(
+            concepts[start:start + chunk_size],
+            pipeline.tokenizer,
+            return_ids_only=False,
+        )
+        hidden_states = pipeline.text_encoder(
+            inputs.input_ids.to(device)
+        ).last_hidden_state
+        subject_indices = (inputs.attention_mask.sum(1) - 2).to(
+            hidden_states.device
+        )
+        batch_indices = torch.arange(
+            hidden_states.shape[0],
+            device=hidden_states.device,
+        )
+        embeddings.append(
+            hidden_states[batch_indices, subject_indices].unsqueeze(1)
+        )
+    return torch.cat(embeddings, dim=0)
 
 
 def build_target_anchor_statistics(
@@ -151,6 +227,8 @@ def build_target_anchor_statistics(
     residual_scale=1.0,
     residual_rank=1,
     residual_top_k=1,
+    subspace_concept_embeddings=None,
+    subspace_anchor_embeddings=None,
 ):
     if not target_embeddings or len(target_embeddings) != len(anchor_embeddings):
         raise ValueError("Target and anchor embeddings must be non-empty and have the same length")
@@ -293,6 +371,33 @@ def build_target_anchor_statistics(
                 rank=residual_rank,
             )
         )
+    elif anchor_mode == "global_pairwise_residual_subspace":
+        if subspace_concept_embeddings is None or subspace_anchor_embeddings is None:
+            raise ValueError(
+                "Global pairwise residual subspace embeddings are required"
+            )
+        residuals, subspace_diagnostics = (
+            build_global_pairwise_residual_subspace_residuals(
+                target_embeddings,
+                anchor_embeddings,
+                concept_embeddings=subspace_concept_embeddings,
+                extra_anchor_embeddings=subspace_anchor_embeddings,
+                rank=residual_rank,
+            )
+        )
+    elif anchor_mode == "target_global_pairwise_residual_subspace":
+        if subspace_anchor_embeddings is None:
+            raise ValueError(
+                "Target-global pairwise residual subspace anchors are required"
+            )
+        residuals, subspace_diagnostics = (
+            build_target_global_pairwise_residual_subspace_residuals(
+                target_embeddings,
+                anchor_embeddings,
+                extra_anchor_embeddings=subspace_anchor_embeddings,
+                rank=residual_rank,
+            )
+        )
     elif anchor_mode == "largest_anchor_cosine_subspace":
         residuals, subspace_diagnostics = (
             build_largest_anchor_cosine_subspace_residuals(
@@ -359,7 +464,18 @@ def generate_perturbed_embs(ret_embs, P, erase_weight, num_per_sample, mini_batc
 
 
 @torch.no_grad()
-def edit_model(args, pipeline, target_concepts, anchor_concepts, retain_texts, baseline=None, chunk_size=128, emb_size=768, device="cuda"):
+def edit_model(
+    args,
+    pipeline,
+    target_concepts,
+    anchor_concepts,
+    retain_texts,
+    baseline=None,
+    chunk_size=128,
+    emb_size=768,
+    device="cuda",
+    subspace_concepts=None,
+):
 
     I = torch.eye(emb_size, device=device)
     if args.params == 'KV':
@@ -394,6 +510,26 @@ def edit_model(args, pipeline, target_concepts, anchor_concepts, retain_texts, b
         target_embeddings.append(target_embs)
         anchor_embeddings.append(anchor_embs)
     anchor_mode = getattr(args, 'anchor_mode', 'legacy')
+    subspace_concept_embeddings = None
+    subspace_anchor_embeddings = None
+    if anchor_mode in GLOBAL_PAIRWISE_ANCHOR_MODES:
+        if anchor_mode == 'global_pairwise_residual_subspace':
+            if not subspace_concepts:
+                raise ValueError(
+                    'Global pairwise residual subspace concepts are required'
+                )
+            subspace_concept_embeddings = encode_last_subject_embeddings(
+                pipeline,
+                subspace_concepts,
+                device=device,
+                chunk_size=chunk_size,
+            )
+        subspace_anchor_embeddings = encode_last_subject_embeddings(
+            pipeline,
+            ['', 'person'],
+            device=device,
+            chunk_size=chunk_size,
+        )
     sum_target_target, target_anchor_delta, anchor_diagnostics = build_target_anchor_statistics(
         target_embeddings,
         anchor_embeddings,
@@ -401,6 +537,8 @@ def edit_model(args, pipeline, target_concepts, anchor_concepts, retain_texts, b
         residual_scale=getattr(args, 'residual_scale', 1.0),
         residual_rank=getattr(args, 'residual_rank', 1),
         residual_top_k=getattr(args, 'residual_top_k', 1),
+        subspace_concept_embeddings=subspace_concept_embeddings,
+        subspace_anchor_embeddings=subspace_anchor_embeddings,
     )
     print(
         f"Anchor mode: {anchor_mode} | "
@@ -410,7 +548,61 @@ def edit_model(args, pipeline, target_concepts, anchor_concepts, retain_texts, b
         f"edit statistic rank: {anchor_diagnostics['edit_statistic_rank']}"
     )
     print(f"Top edit statistic singular values: {anchor_diagnostics['edit_statistic_singular_values']}")
-    if anchor_mode in [
+    if anchor_mode in GLOBAL_PAIRWISE_ANCHOR_MODES:
+        if anchor_mode == "global_pairwise_residual_subspace":
+            source = getattr(args, 'subspace_concepts_path', None)
+            concept_label = "concepts"
+            concept_count = anchor_diagnostics['global_subspace_concept_count']
+            residual_shape = anchor_diagnostics['global_subspace_residual_shape']
+        else:
+            source = "target_concepts"
+            concept_label = "targets"
+            concept_count = anchor_diagnostics[
+                'target_global_subspace_target_count'
+            ]
+            residual_shape = anchor_diagnostics[
+                'target_global_subspace_residual_shape'
+            ]
+        print(
+            f"Global residual subspace: source="
+            f"{source!r} | "
+            f"{concept_label}={concept_count} | "
+            f"extra anchors="
+            f"{anchor_diagnostics['global_subspace_extra_anchor_count']} | "
+            f"residual matrix={residual_shape}"
+        )
+        print(
+            f"Global residual SVD: requested rank="
+            f"{anchor_diagnostics['subspace_requested_rank']} | "
+            f"effective rank={anchor_diagnostics['subspace_effective_rank']} | "
+            f"basis rank={anchor_diagnostics['subspace_basis_rank']} | "
+            f"normalized before SVD="
+            f"{anchor_diagnostics['subspace_normalized_before_svd']} | "
+            f"zero-norm rows="
+            f"{anchor_diagnostics['subspace_zero_norm_residual_count']}"
+        )
+        print(
+            f"Global residual subspace singular values: "
+            f"{anchor_diagnostics['subspace_singular_values']}"
+        )
+        print(
+            f"Mean cos(target, target + residual): legacy="
+            f"{anchor_diagnostics['subspace_legacy_cosine_mean']:.6f} | "
+            f"projected={anchor_diagnostics['subspace_new_cosine_mean']:.6f}"
+        )
+        print(
+            f"Residual invariants: max norm error="
+            f"{anchor_diagnostics['subspace_max_norm_error']:.3e} | "
+            f"max subspace error="
+            f"{anchor_diagnostics['subspace_max_projection_error']:.3e}"
+        )
+        print(
+            f"Subspace fallbacks: projected legacy="
+            f"{anchor_diagnostics['subspace_legacy_fallback_count']} | "
+            f"first basis vector="
+            f"{anchor_diagnostics['subspace_basis_fallback_count']}"
+        )
+    elif anchor_mode in [
         "smallest_cosine_subspace",
         "largest_anchor_cosine_subspace",
     ]:
@@ -556,6 +748,16 @@ def edit_model(args, pipeline, target_concepts, anchor_concepts, retain_texts, b
             f"used first basis vector="
             f"{anchor_diagnostics['subspace_basis_fallback_count']}"
         )
+    elif anchor_mode in GLOBAL_PAIRWISE_ANCHOR_MODES:
+        print(
+            f"{anchor_mode} fallback summary after training: "
+            f"target projection near zero="
+            f"{anchor_diagnostics['subspace_target_projection_fallback_count']} | "
+            f"used projected legacy residual="
+            f"{anchor_diagnostics['subspace_legacy_fallback_count']} | "
+            f"used first basis vector="
+            f"{anchor_diagnostics['subspace_basis_fallback_count']}"
+        )
     print(f"Current model status: Edited {str(target_concepts)} into {str(anchor_concepts)}")
     return edit_dict
 
@@ -631,6 +833,13 @@ if __name__ == '__main__':
         file_suffix += f'-truncated_svd_residual_rank_{args.residual_rank}'
     elif args.anchor_mode == 'smallest_cosine_subspace':
         file_suffix += f'-smallest_cosine_subspace_top_k_{args.residual_top_k}'
+    elif args.anchor_mode == 'global_pairwise_residual_subspace':
+        file_suffix += f'-global_pairwise_residual_subspace_rank_{args.residual_rank}'
+    elif args.anchor_mode == 'target_global_pairwise_residual_subspace':
+        file_suffix += (
+            f'-target_global_pairwise_residual_subspace_rank_'
+            f'{args.residual_rank}'
+        )
     elif args.anchor_mode == 'largest_anchor_cosine_subspace':
         file_suffix += f'-largest_anchor_cosine_subspace_top_k_{args.residual_top_k}'
     if args.residual_scale != 1.0:
@@ -645,6 +854,15 @@ if __name__ == '__main__':
     else:
         retain_texts.append("")
 
+    subspace_concepts = None
+    if args.anchor_mode == 'global_pairwise_residual_subspace':
+        try:
+            subspace_concepts = load_subspace_concepts(
+                args.subspace_concepts_path
+            )
+        except (OSError, ValueError) as error:
+            parser.error(str(error))
+
     pipeline = StableDiffusionPipeline.from_pretrained(args.sd_ckpt).to(device)
 
     edit_dict = edit_model(
@@ -655,6 +873,7 @@ if __name__ == '__main__':
         retain_texts=retain_texts, 
         baseline=args.baseline, 
         device=device, 
+        subspace_concepts=subspace_concepts,
     )
 
     save_path = args.save_path or "logs/checkpoints"

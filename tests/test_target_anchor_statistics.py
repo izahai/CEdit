@@ -25,6 +25,62 @@ from train_erase_null import build_target_anchor_statistics
 
 
 class TargetAnchorStatisticsTests(unittest.TestCase):
+    def test_target_global_mode_builds_the_basis_from_targets(self):
+        targets = [
+            torch.tensor([[3.0, 4.0, 0.0]]),
+            torch.tensor([[2.0, 1.0, 0.0]]),
+        ]
+        legacy = [
+            torch.tensor([[0.0, 2.0, 0.0]]),
+            torch.tensor([[0.0, 3.0, 0.0]]),
+        ]
+        anchors = [
+            target + residual
+            for target, residual in zip(targets, legacy)
+        ]
+        fixed_anchors = torch.tensor(
+            [[[0.0, 0.0, 0.0]], [[4.0, 0.0, 0.0]]]
+        )
+
+        _, _, diagnostics = build_target_anchor_statistics(
+            targets,
+            anchors,
+            anchor_mode="target_global_pairwise_residual_subspace",
+            residual_rank=1,
+            subspace_anchor_embeddings=fixed_anchors,
+        )
+
+        self.assertEqual(diagnostics["target_global_subspace_target_count"], 2)
+        self.assertEqual(diagnostics["target_global_subspace_residual_count"], 6)
+        self.assertEqual(diagnostics["target_global_subspace_residual_shape"], (6, 3))
+
+    def test_global_pairwise_mode_uses_external_concept_embeddings(self):
+        targets = [torch.tensor([[3.0, 4.0, 0.0]])]
+        anchors = [torch.tensor([[3.0, 6.0, 0.0]])]
+        global_concepts = torch.tensor(
+            [[[1.0, 0.0, 0.0]], [[2.0, 0.0, 0.0]]]
+        )
+        global_anchors = torch.tensor(
+            [[[0.0, 0.0, 0.0]], [[3.0, 0.0, 0.0]]]
+        )
+
+        _, target_anchor_delta, diagnostics = build_target_anchor_statistics(
+            targets,
+            anchors,
+            anchor_mode="global_pairwise_residual_subspace",
+            residual_rank=1,
+            subspace_concept_embeddings=global_concepts,
+            subspace_anchor_embeddings=global_anchors,
+        )
+
+        expected_residual = torch.tensor([[-2.0, 0.0, 0.0]])
+        torch.testing.assert_close(
+            target_anchor_delta,
+            expected_residual.T @ targets[0],
+        )
+        self.assertEqual(diagnostics["global_subspace_concept_count"], 2)
+        self.assertEqual(diagnostics["global_subspace_residual_count"], 6)
+
     def test_legacy_statistics_remain_the_direct_residual_formula(self):
         targets = [
             torch.tensor([[1.0, 2.0]]),

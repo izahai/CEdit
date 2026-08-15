@@ -1,0 +1,7 @@
+benchmark,model,requested_residual_rank,basis_rank,global_concept_count,global_residual_count,aug_num,threshold,retain_scale,split,n_images,n_faces_detected,n_identity_correct,face_detection_rate,conditional_accuracy_CE_Eval,identity_hit_rate,mean_matched_top1_probability
+10_celebrity,global_pairwise_residual_subspace,30,30,110,12210,0,0.0001,0.05,erase,500,485,1,0.97,0.002061855670103093,0.002,0.00082442314
+10_celebrity,global_pairwise_residual_subspace,30,30,110,12210,0,0.0001,0.05,retain,500,493,428,0.986,0.8681541582150102,0.856,0.7996761194199999
+50_celebrity,global_pairwise_residual_subspace,30,30,150,22650,0,0.0001,0.05,erase,500,490,4,0.98,0.00816326530612245,0.008,0.0050522160800000005
+50_celebrity,global_pairwise_residual_subspace,30,30,150,22650,0,0.0001,0.05,retain,500,494,415,0.988,0.840080971659919,0.83,0.77333754886
+100_celebrity,global_pairwise_residual_subspace,30,30,200,40200,0,0.0001,0.05,erase,500,498,2,0.996,0.004016064257028112,0.004,0.00247169012
+100_celebrity,global_pairwise_residual_subspace,30,30,200,40200,0,0.0001,0.05,retain,500,495,400,0.99,0.8080808080808081,0.8,0.72752125978

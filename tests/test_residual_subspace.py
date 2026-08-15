@@ -1,12 +1,217 @@
 import unittest
+from unittest.mock import patch
 
 import torch
 
 from src.residual_subspace import (
+    build_global_pairwise_residual_matrix,
+    build_global_pairwise_residual_subspace_residuals,
     build_largest_anchor_cosine_subspace_residuals,
     build_negative_target_normalized_residual_subspace_residuals,
     build_smallest_cosine_subspace_residuals,
+    build_target_global_pairwise_residual_subspace_residuals,
 )
+
+
+class GlobalPairwiseResidualSubspaceTests(unittest.TestCase):
+    def test_builds_ordered_pairwise_and_extra_anchor_residual_blocks(self):
+        concepts = torch.tensor(
+            [[[1.0, 0.0]], [[0.0, 2.0]], [[3.0, 3.0]]]
+        )
+        extra_anchors = torch.tensor([[[0.0, 0.0]], [[2.0, 1.0]]])
+
+        residuals = build_global_pairwise_residual_matrix(
+            concepts,
+            extra_anchors,
+        )
+
+        expected = torch.tensor(
+            [
+                [-1.0, 2.0],
+                [2.0, 3.0],
+                [-1.0, 0.0],
+                [1.0, 1.0],
+                [1.0, -2.0],
+                [3.0, 1.0],
+                [0.0, -2.0],
+                [2.0, -1.0],
+                [-2.0, -3.0],
+                [-3.0, -1.0],
+                [-3.0, -3.0],
+                [-1.0, -2.0],
+            ]
+        )
+        self.assertEqual(residuals.shape, (3 * (3 + 1), 2))
+        torch.testing.assert_close(residuals, expected)
+
+    def test_normalizes_every_global_residual_before_exact_svd(self):
+        concepts = torch.tensor([[[1.0, 0.0]], [[0.0, 2.0]]])
+        extra_anchors = torch.tensor([[[4.0, 0.0]], [[0.0, 8.0]]])
+        targets = torch.tensor([[[1.0, 1.0]]])
+        anchors = torch.tensor([[[2.0, 1.0]]])
+        captured = {}
+        exact_svd = torch.linalg.svd
+
+        def capture_svd(matrix, *args, **kwargs):
+            captured["matrix"] = matrix.detach().clone()
+            return exact_svd(matrix, *args, **kwargs)
+
+        with patch("src.residual_subspace.torch.linalg.svd", side_effect=capture_svd):
+            _, diagnostics = build_global_pairwise_residual_subspace_residuals(
+                targets,
+                anchors,
+                concepts,
+                extra_anchors,
+                rank=2,
+            )
+
+        torch.testing.assert_close(
+            captured["matrix"].norm(dim=1),
+            torch.ones(6),
+        )
+        self.assertTrue(diagnostics["subspace_normalized_before_svd"])
+        self.assertEqual(diagnostics["global_subspace_residual_count"], 6)
+        self.assertEqual(diagnostics["global_subspace_residual_shape"], (6, 2))
+
+    def test_uses_negative_target_projection_and_preserves_legacy_norm(self):
+        concepts = torch.tensor([[[1.0, 0.0, 0.0]], [[2.0, 0.0, 0.0]]])
+        extra_anchors = torch.tensor(
+            [[[0.0, 0.0, 0.0]], [[3.0, 0.0, 0.0]]]
+        )
+        targets = torch.tensor([[[3.0, 4.0, 0.0]]])
+        legacy = torch.tensor([[[0.0, 2.0, 0.0]]])
+
+        residuals, diagnostics = build_global_pairwise_residual_subspace_residuals(
+            targets,
+            targets + legacy,
+            concepts,
+            extra_anchors,
+            rank=1,
+        )
+
+        torch.testing.assert_close(residuals, torch.tensor([[[-2.0, 0.0, 0.0]]]))
+        torch.testing.assert_close(residuals.norm(), legacy.norm())
+        self.assertLess(diagnostics["subspace_max_projection_error"], 1e-6)
+        self.assertEqual(diagnostics["subspace_basis_rank"], 1)
+
+    def test_preserves_both_negative_target_fallbacks(self):
+        concepts = torch.tensor([[[1.0, 0.0, 0.0]], [[2.0, 0.0, 0.0]]])
+        extra_anchors = torch.tensor(
+            [[[0.0, 0.0, 0.0]], [[3.0, 0.0, 0.0]]]
+        )
+        targets = torch.tensor(
+            [[[0.0, 2.0, 0.0]], [[0.0, 3.0, 0.0]]]
+        )
+        legacy = torch.tensor(
+            [[[2.0, 0.0, 0.0]], [[0.0, 0.0, 4.0]]]
+        )
+
+        residuals, diagnostics = build_global_pairwise_residual_subspace_residuals(
+            targets,
+            targets + legacy,
+            concepts,
+            extra_anchors,
+            rank=1,
+        )
+
+        torch.testing.assert_close(residuals[0], legacy[0])
+        self.assertEqual(residuals[1, :, 1:].abs().max().item(), 0.0)
+        self.assertAlmostEqual(residuals[1].norm().item(), 4.0)
+        self.assertEqual(diagnostics["subspace_target_projection_fallback_count"], 2)
+        self.assertEqual(diagnostics["subspace_legacy_fallback_count"], 1)
+        self.assertEqual(diagnostics["subspace_basis_fallback_count"], 1)
+
+    def test_rejects_invalid_rank_and_zero_rank_global_matrix(self):
+        concepts = torch.zeros(1, 1, 2)
+        extra_anchors = torch.zeros(2, 1, 2)
+        targets = torch.ones(1, 1, 2)
+
+        with self.assertRaisesRegex(ValueError, "exceeds"):
+            build_global_pairwise_residual_subspace_residuals(
+                targets,
+                targets,
+                concepts,
+                extra_anchors,
+                rank=3,
+            )
+        with self.assertRaisesRegex(ValueError, "zero-rank"):
+            build_global_pairwise_residual_subspace_residuals(
+                targets,
+                targets,
+                concepts,
+                extra_anchors,
+                rank=1,
+            )
+
+
+class TargetGlobalPairwiseResidualSubspaceTests(unittest.TestCase):
+    def test_uses_only_targets_and_fixed_anchors_for_the_basis(self):
+        targets = torch.tensor(
+            [[[1.0, 0.0]], [[0.0, 2.0]], [[3.0, 3.0]]]
+        )
+        anchors = targets + torch.tensor(
+            [[[0.5, 0.0]], [[0.0, 0.5]], [[0.5, 0.5]]]
+        )
+        extra_anchors = torch.tensor([[[0.0, 0.0]], [[2.0, 1.0]]])
+        captured = {}
+        exact_svd = torch.linalg.svd
+
+        def capture_svd(matrix, *args, **kwargs):
+            captured["matrix"] = matrix.detach().clone()
+            return exact_svd(matrix, *args, **kwargs)
+
+        with patch("src.residual_subspace.torch.linalg.svd", side_effect=capture_svd):
+            _, diagnostics = (
+                build_target_global_pairwise_residual_subspace_residuals(
+                    targets,
+                    anchors,
+                    extra_anchor_embeddings=extra_anchors,
+                    rank=2,
+                )
+            )
+
+        expected = build_global_pairwise_residual_matrix(targets, extra_anchors)
+        expected = expected / expected.norm(dim=1, keepdim=True)
+        torch.testing.assert_close(captured["matrix"], expected)
+        self.assertEqual(
+            diagnostics["target_global_subspace_target_count"],
+            3,
+        )
+        self.assertEqual(
+            diagnostics["target_global_subspace_residual_count"],
+            3 * (3 + 1),
+        )
+        self.assertEqual(
+            diagnostics["target_global_subspace_residual_shape"],
+            (12, 2),
+        )
+
+    def test_preserves_negative_target_projection_and_legacy_norm(self):
+        targets = torch.tensor(
+            [[[3.0, 4.0, 0.0]], [[2.0, 1.0, 0.0]]]
+        )
+        legacy = torch.tensor(
+            [[[0.0, 2.0, 0.0]], [[0.0, 3.0, 0.0]]]
+        )
+        extra_anchors = torch.tensor(
+            [[[0.0, 0.0, 0.0]], [[4.0, 0.0, 0.0]]]
+        )
+
+        residuals, diagnostics = (
+            build_target_global_pairwise_residual_subspace_residuals(
+                targets,
+                targets + legacy,
+                extra_anchor_embeddings=extra_anchors,
+                rank=1,
+            )
+        )
+
+        torch.testing.assert_close(
+            residuals.norm(dim=2),
+            legacy.norm(dim=2),
+        )
+        self.assertLess(diagnostics["subspace_max_projection_error"], 1e-6)
+        self.assertEqual(diagnostics["subspace_basis_rank"], 1)
 
 
 class SmallestCosineSubspaceResidualTests(unittest.TestCase):
