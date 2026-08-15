@@ -1,0 +1,13 @@
+config,benchmark,model,requested_residual_rank,effective_residual_rank,aug_num,threshold,retain_scale,split,n_images,n_faces_detected,n_identity_correct,face_detection_rate,conditional_accuracy_CE_Eval,identity_hit_rate,mean_matched_top1_probability
+config_1,10_celebrity,negative_target_normalized_residual_subspace,30,10,0,0.0001,0.05,erase,500,494,5,0.988,0.010121457489878543,0.01,0.00438698556
+config_1,10_celebrity,negative_target_normalized_residual_subspace,30,10,0,0.0001,0.05,retain,500,497,433,0.994,0.8712273641851107,0.866,0.81540995958
+config_1,50_celebrity,negative_target_normalized_residual_subspace,30,30,0,0.0001,0.05,erase,500,486,6,0.972,0.012345679012345678,0.012,0.01029817348
+config_1,50_celebrity,negative_target_normalized_residual_subspace,30,30,0,0.0001,0.05,retain,500,495,437,0.99,0.8828282828282829,0.874,0.8194335947599999
+config_1,100_celebrity,negative_target_normalized_residual_subspace,30,30,0,0.0001,0.05,erase,500,497,3,0.994,0.006036217303822937,0.006,0.0029639282199999998
+config_1,100_celebrity,negative_target_normalized_residual_subspace,30,30,0,0.0001,0.05,retain,500,493,421,0.986,0.8539553752535497,0.842,0.7701625337600001
+config_2,10_celebrity,negative_target_normalized_residual_subspace,30,10,10,0.0001,0.05,erase,500,493,1,0.986,0.002028397565922921,0.002,0.0011515804
+config_2,10_celebrity,negative_target_normalized_residual_subspace,30,10,10,0.0001,0.05,retain,500,496,433,0.992,0.8729838709677419,0.866,0.81145441092
+config_2,50_celebrity,negative_target_normalized_residual_subspace,30,30,10,0.0001,0.05,erase,500,486,8,0.972,0.01646090534979424,0.016,0.01167149464
+config_2,50_celebrity,negative_target_normalized_residual_subspace,30,30,10,0.0001,0.05,retain,500,494,439,0.988,0.888663967611336,0.878,0.8175301067
+config_2,100_celebrity,negative_target_normalized_residual_subspace,30,30,10,0.0001,0.05,erase,500,495,3,0.99,0.006060606060606061,0.006,0.0035393415599999996
+config_2,100_celebrity,negative_target_normalized_residual_subspace,30,30,10,0.0001,0.05,retain,500,493,408,0.986,0.8275862068965517,0.816,0.7578709735599999
