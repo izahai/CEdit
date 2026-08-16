@@ -1,0 +1,20 @@
+# Matches eval_target_global_pairwise_residual_subspace/train_config.yaml.
+sd_ckpt: CompVis/stable-diffusion-v1-4
+seed: 0
+
+anchor_concepts:
+  - person
+anchor_mode: target_global_pairwise_residual_subspace
+residual_rank: 30
+residual_scale: 1.0
+
+baseline: SPEED
+params: V
+aug_num: 0
+threshold: 0.0001
+retain_scale: 0.05
+lamb: 0.0
+disable_filter: true
+
+heads: concept
+file_name: weight
