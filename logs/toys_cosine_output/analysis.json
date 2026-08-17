@@ -1,0 +1,93 @@
+{
+  "checkpoint": "CompVis/stable-diffusion-v1-4",
+  "target_concepts": [
+    "Adam Driver",
+    "Adriana Lima",
+    "Amber Heard",
+    "Amy Adams",
+    "Andrew Garfield"
+  ],
+  "anchor_concept": "person",
+  "extra_anchor_concepts": [
+    "",
+    "person"
+  ],
+  "requested_residual_rank": 30,
+  "layer_count": 16,
+  "target_layer_pair_count": 80,
+  "tgprs_diagnostics": {
+    "subspace_effective_rank": 6,
+    "subspace_requested_rank": 30,
+    "subspace_basis_rank": 6,
+    "subspace_normalized_before_svd": true,
+    "subspace_input_projected": false,
+    "subspace_input_projection_relative_change": 0.0,
+    "subspace_singular_values": [
+      2.6132121086120605,
+      2.4269001483917236,
+      2.2926509380340576,
+      2.1698360443115234,
+      1.9869837760925293
+    ],
+    "subspace_zero_norm_residual_count": 0,
+    "subspace_max_norm_error": 0.0,
+    "subspace_max_projection_error": 0.00036357127828523517,
+    "subspace_primary_projection_fallback_count": 0,
+    "subspace_legacy_fallback_count": 0,
+    "subspace_basis_fallback_count": 0,
+    "global_subspace_concept_count": 5,
+    "global_subspace_extra_anchor_count": 2,
+    "global_subspace_residual_count": 30,
+    "global_subspace_residual_shape": [
+      30,
+      768
+    ],
+    "subspace_magnitude_mode": "legacy",
+    "subspace_legacy_cosine_mean": 0.14846570789813995,
+    "subspace_new_cosine_mean": -0.08039788901805878,
+    "subspace_target_projection_fallback_count": 0,
+    "target_global_subspace_target_count": 5,
+    "target_global_subspace_extra_anchor_count": 2,
+    "target_global_subspace_residual_count": 30,
+    "target_global_subspace_residual_shape": [
+      30,
+      768
+    ]
+  },
+  "overall_summary": {
+    "group": "overall",
+    "count": 80,
+    "embedding_cosine_mean": -0.08039789050817489,
+    "embedding_cosine_min": -0.10574676096439362,
+    "embedding_cosine_max": -0.04170729219913483,
+    "embedding_cosine_std": 0.021324099372617505,
+    "embedding_angle_degrees_mean": 94.61241607666015,
+    "embedding_angle_degrees_min": 92.39034271240234,
+    "embedding_angle_degrees_max": 96.0701904296875,
+    "embedding_angle_degrees_std": 1.2251180074357615,
+    "residual_norm_mean": 36.44609375,
+    "residual_norm_min": 35.278106689453125,
+    "residual_norm_max": 37.175533294677734,
+    "residual_norm_std": 0.6330776756231087,
+    "relative_embedding_residual_norm_mean": 1.306755781173706,
+    "relative_embedding_residual_norm_min": 1.2740305662155151,
+    "relative_embedding_residual_norm_max": 1.3317769765853882,
+    "relative_embedding_residual_norm_std": 0.01914842721385421,
+    "output_cosine_mean": 0.13819457916542888,
+    "output_cosine_min": -0.45539239048957825,
+    "output_cosine_max": 0.7556336522102356,
+    "output_cosine_std": 0.4060071832303944,
+    "output_angle_degrees_mean": 81.116468334198,
+    "output_angle_degrees_min": 40.91923522949219,
+    "output_angle_degrees_max": 117.09017944335938,
+    "output_angle_degrees_std": 24.832995700911486,
+    "output_residual_norm_mean": 29.088709807395936,
+    "output_residual_norm_min": 7.211345672607422,
+    "output_residual_norm_max": 59.67110061645508,
+    "output_residual_norm_std": 16.929061632216982,
+    "relative_output_residual_norm_mean": 1.1356471329927444,
+    "relative_output_residual_norm_min": 0.6685588955879211,
+    "relative_output_residual_norm_max": 1.494306206703186,
+    "relative_output_residual_norm_std": 0.24906208905021732
+  }
+}

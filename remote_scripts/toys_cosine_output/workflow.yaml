@@ -1,0 +1,20 @@
+runtime:
+  python_bin: /venv/main/bin/python
+  gpu_id: 0
+
+experiment:
+  sd_ckpt: CompVis/stable-diffusion-v1-4
+  target_csv: ${REPO_ROOT}/data/10_celebrity.csv
+  max_targets: 5
+  anchor_concept: person
+  extra_anchor_concepts:
+    - ""
+    - person
+  residual_rank: 30
+  batch_size: 16
+  model_dtype: float32
+  device: cuda
+  eps: 1.0e-8
+
+paths:
+  output_root: ${WORKSPACE_DIR}/cedit_toys_cosine_output
