@@ -1,0 +1,22 @@
+# Matches eval_target_global_pairwise_residual_subspace/train_config.yaml except for anchor_mode.
+# Shared by the 10, 50, and 100 celebrity target-only evaluations.
+# 02_train.sh supplies target_concepts, retain_path, and save_path per task.
+sd_ckpt: CompVis/stable-diffusion-v1-4
+seed: 0
+
+anchor_concepts:
+  - person
+anchor_mode: mean_norm_target_global_pairwise_residual_subspace
+residual_rank: 30
+residual_scale: 1.0
+
+baseline: SPEED
+params: V
+aug_num: 0
+threshold: 1.0e-04
+retain_scale: 0.05
+lamb: 0.0
+disable_filter: true
+
+heads: concept
+file_name: weight
