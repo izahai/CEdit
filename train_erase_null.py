@@ -13,7 +13,9 @@ from diffusers import StableDiffusionPipeline
 from src.residual_subspace import (
     build_global_pairwise_residual_subspace_residuals,
     build_largest_anchor_cosine_subspace_residuals,
+    build_mean_norm_target_global_pairwise_residual_subspace_residuals,
     build_negative_target_normalized_residual_subspace_residuals,
+    build_retain_aware_target_global_pairwise_residual_subspace_residuals,
     build_smallest_cosine_subspace_residuals,
     build_target_global_pairwise_residual_subspace_residuals,
 )
@@ -32,12 +34,16 @@ ANCHOR_MODES = [
     'negative_target_normalized_residual_subspace',
     'global_pairwise_residual_subspace',
     'target_global_pairwise_residual_subspace',
+    'mean_norm_target_global_pairwise_residual_subspace',
+    'retain_aware_target_global_pairwise_residual_subspace',
     'largest_anchor_cosine_subspace',
 ]
 
 GLOBAL_PAIRWISE_ANCHOR_MODES = {
     'global_pairwise_residual_subspace',
     'target_global_pairwise_residual_subspace',
+    'mean_norm_target_global_pairwise_residual_subspace',
+    'retain_aware_target_global_pairwise_residual_subspace',
 }
 
 
@@ -229,6 +235,7 @@ def build_target_anchor_statistics(
     residual_top_k=1,
     subspace_concept_embeddings=None,
     subspace_anchor_embeddings=None,
+    retain_projection=None,
 ):
     if not target_embeddings or len(target_embeddings) != len(anchor_embeddings):
         raise ValueError("Target and anchor embeddings must be non-empty and have the same length")
@@ -398,6 +405,34 @@ def build_target_anchor_statistics(
                 rank=residual_rank,
             )
         )
+    elif anchor_mode == "mean_norm_target_global_pairwise_residual_subspace":
+        if subspace_anchor_embeddings is None:
+            raise ValueError(
+                "Mean-norm target-global pairwise residual subspace anchors are "
+                "required"
+            )
+        residuals, subspace_diagnostics = (
+            build_mean_norm_target_global_pairwise_residual_subspace_residuals(
+                target_embeddings,
+                anchor_embeddings,
+                extra_anchor_embeddings=subspace_anchor_embeddings,
+                rank=residual_rank,
+            )
+        )
+    elif anchor_mode == "retain_aware_target_global_pairwise_residual_subspace":
+        if subspace_anchor_embeddings is None:
+            raise ValueError(
+                "Retain-aware target-global pairwise subspace anchors are required"
+            )
+        residuals, subspace_diagnostics = (
+            build_retain_aware_target_global_pairwise_residual_subspace_residuals(
+                target_embeddings,
+                anchor_embeddings,
+                extra_anchor_embeddings=subspace_anchor_embeddings,
+                retain_projection=retain_projection,
+                rank=residual_rank,
+            )
+        )
     elif anchor_mode == "largest_anchor_cosine_subspace":
         residuals, subspace_diagnostics = (
             build_largest_anchor_cosine_subspace_residuals(
@@ -530,10 +565,16 @@ def edit_model(
             device=device,
             chunk_size=chunk_size,
         )
+    statistics_anchor_mode = anchor_mode
+    if anchor_mode == "retain_aware_target_global_pairwise_residual_subspace":
+        # P_retain is layer-specific and is not available until the retain
+        # covariance has been built. The original target-global statistic is
+        # used only to bootstrap SPEED's optional retain filtering.
+        statistics_anchor_mode = "target_global_pairwise_residual_subspace"
     sum_target_target, target_anchor_delta, anchor_diagnostics = build_target_anchor_statistics(
         target_embeddings,
         anchor_embeddings,
-        anchor_mode=anchor_mode,
+        anchor_mode=statistics_anchor_mode,
         residual_scale=getattr(args, 'residual_scale', 1.0),
         residual_rank=getattr(args, 'residual_rank', 1),
         residual_top_k=getattr(args, 'residual_top_k', 1),
@@ -548,6 +589,11 @@ def edit_model(
         f"edit statistic rank: {anchor_diagnostics['edit_statistic_rank']}"
     )
     print(f"Top edit statistic singular values: {anchor_diagnostics['edit_statistic_singular_values']}")
+    if anchor_mode == "retain_aware_target_global_pairwise_residual_subspace":
+        print(
+            "Initial target-anchor statistic is an unprojected bootstrap; "
+            "the retain-aware statistic is recomputed for every edited layer"
+        )
     if anchor_mode in GLOBAL_PAIRWISE_ANCHOR_MODES:
         if anchor_mode == "global_pairwise_residual_subspace":
             source = getattr(args, 'subspace_concepts_path', None)
@@ -571,6 +617,13 @@ def edit_model(
             f"{anchor_diagnostics['global_subspace_extra_anchor_count']} | "
             f"residual matrix={residual_shape}"
         )
+        if anchor_mode == "mean_norm_target_global_pairwise_residual_subspace":
+            print(
+                "Per-target mean global residual norm: "
+                f"mean={anchor_diagnostics['target_global_mean_residual_norm_mean']:.6f} | "
+                f"min={anchor_diagnostics['target_global_mean_residual_norm_min']:.6f} | "
+                f"max={anchor_diagnostics['target_global_mean_residual_norm_max']:.6f}"
+            )
         print(
             f"Global residual SVD: requested rank="
             f"{anchor_diagnostics['subspace_requested_rank']} | "
@@ -696,6 +749,9 @@ def edit_model(
     last_ret_embs = last_ret_embs[torch.randperm(last_ret_embs.size(0))]  # shuffle
     # endregion
 
+    retain_aware_layer_count = 0
+    retain_projector_is_layer_independent = args.aug_num == 0
+    retain_low_rank_logged = False
     for (layer_name, layer_weight) in tqdm(edit_dict.items(), desc="Model Editing"):
 
         erase_weight = layer_weight @ target_anchor_delta @ (I + sum_target_target).inverse()
@@ -721,9 +777,41 @@ def edit_model(
 
         if baseline == 'SPEED':
             U, S, V = torch.svd(sum_ret_ret)
-            P = U[:, S < args.threshold] @ U[:, S < args.threshold].T
+            retain_low_mask = S < args.threshold
+            retain_low_rank = int(retain_low_mask.sum().item())
+            P = U[:, retain_low_mask] @ U[:, retain_low_mask].T
+            if not retain_projector_is_layer_independent or not retain_low_rank_logged:
+                layer_label = (
+                    "shared"
+                    if retain_projector_is_layer_independent
+                    else layer_name
+                )
+                print(
+                    "Retain-low projector: "
+                    f"layer={layer_label} | "
+                    f"threshold={args.threshold:g} | "
+                    f"rank={retain_low_rank}/{S.numel()} | "
+                    f"layer-independent={retain_projector_is_layer_independent}"
+                )
+                retain_low_rank_logged = True
+            layer_target_anchor_delta = target_anchor_delta
+            if anchor_mode == "retain_aware_target_global_pairwise_residual_subspace":
+                _, layer_target_anchor_delta, layer_subspace_diagnostics = (
+                    build_target_anchor_statistics(
+                        target_embeddings,
+                        anchor_embeddings,
+                        anchor_mode=anchor_mode,
+                        residual_scale=getattr(args, 'residual_scale', 1.0),
+                        residual_rank=getattr(args, 'residual_rank', 1),
+                        residual_top_k=getattr(args, 'residual_top_k', 1),
+                        subspace_anchor_embeddings=subspace_anchor_embeddings,
+                        retain_projection=P,
+                    )
+                )
+                anchor_diagnostics.update(layer_subspace_diagnostics)
+                retain_aware_layer_count += 1
             M = (sum_target_target @ P + args.retain_scale * I).inverse()
-            delta_weight = layer_weight @ target_anchor_delta @ P @ (I - M @ K2 @ (K2.T @ P @ M @ K2 + args.lamb * I2).inverse() @ K2.T @ P) @ M
+            delta_weight = layer_weight @ layer_target_anchor_delta @ P @ (I - M @ K2 @ (K2.T @ P @ M @ K2 + args.lamb * I2).inverse() @ K2.T @ P) @ M
 
         # Save edited weights
         edit_dict[layer_name] = layer_weight + delta_weight
@@ -749,6 +837,18 @@ def edit_model(
             f"{anchor_diagnostics['subspace_basis_fallback_count']}"
         )
     elif anchor_mode in GLOBAL_PAIRWISE_ANCHOR_MODES:
+        if anchor_mode == "retain_aware_target_global_pairwise_residual_subspace":
+            summary = (
+                "Retain-aware target-global summary after training: "
+                f"layers={retain_aware_layer_count} | "
+                "raw residuals projected before normalization/SVD=True"
+            )
+            if retain_aware_layer_count:
+                summary += (
+                    " | last-layer relative projection change="
+                    f"{anchor_diagnostics['subspace_input_projection_relative_change']:.6f}"
+                )
+            print(summary)
         print(
             f"{anchor_mode} fallback summary after training: "
             f"target projection near zero="
@@ -838,6 +938,16 @@ if __name__ == '__main__':
     elif args.anchor_mode == 'target_global_pairwise_residual_subspace':
         file_suffix += (
             f'-target_global_pairwise_residual_subspace_rank_'
+            f'{args.residual_rank}'
+        )
+    elif args.anchor_mode == 'mean_norm_target_global_pairwise_residual_subspace':
+        file_suffix += (
+            f'-mean_norm_target_global_pairwise_residual_subspace_rank_'
+            f'{args.residual_rank}'
+        )
+    elif args.anchor_mode == 'retain_aware_target_global_pairwise_residual_subspace':
+        file_suffix += (
+            f'-retain_aware_target_global_pairwise_residual_subspace_rank_'
             f'{args.residual_rank}'
         )
     elif args.anchor_mode == 'largest_anchor_cosine_subspace':

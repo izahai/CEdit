@@ -26,6 +26,20 @@ from train_erase_null import load_subspace_concepts, normalize_concepts, parse_a
 
 
 class TrainConfigTests(unittest.TestCase):
+    def test_mean_norm_target_global_mode_does_not_require_subspace_csv(self):
+        _, args = parse_args(
+            [
+                "--anchor_mode",
+                "mean_norm_target_global_pairwise_residual_subspace",
+            ]
+        )
+
+        self.assertEqual(
+            args.anchor_mode,
+            "mean_norm_target_global_pairwise_residual_subspace",
+        )
+        self.assertIsNone(args.subspace_concepts_path)
+
     def test_target_global_mode_does_not_require_subspace_csv(self):
         _, args = parse_args(
             ["--anchor_mode", "target_global_pairwise_residual_subspace"]
@@ -34,6 +48,20 @@ class TrainConfigTests(unittest.TestCase):
         self.assertEqual(
             args.anchor_mode,
             "target_global_pairwise_residual_subspace",
+        )
+        self.assertIsNone(args.subspace_concepts_path)
+
+    def test_retain_aware_target_global_mode_does_not_require_subspace_csv(self):
+        _, args = parse_args(
+            [
+                "--anchor_mode",
+                "retain_aware_target_global_pairwise_residual_subspace",
+            ]
+        )
+
+        self.assertEqual(
+            args.anchor_mode,
+            "retain_aware_target_global_pairwise_residual_subspace",
         )
         self.assertIsNone(args.subspace_concepts_path)
 

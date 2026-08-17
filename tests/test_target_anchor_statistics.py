@@ -25,6 +25,53 @@ from train_erase_null import build_target_anchor_statistics
 
 
 class TargetAnchorStatisticsTests(unittest.TestCase):
+    def test_mean_norm_target_global_mode_reports_per_target_magnitudes(self):
+        targets = [
+            torch.tensor([[1.0, 1.0]]),
+            torch.tensor([[4.0, 1.0]]),
+        ]
+        anchors = [target + 1.0 for target in targets]
+        fixed_anchors = torch.tensor(
+            [[[1.0, 5.0]], [[5.0, 4.0]]]
+        )
+
+        _, _, diagnostics = build_target_anchor_statistics(
+            targets,
+            anchors,
+            anchor_mode="mean_norm_target_global_pairwise_residual_subspace",
+            residual_rank=2,
+            subspace_anchor_embeddings=fixed_anchors,
+        )
+
+        self.assertEqual(diagnostics["subspace_magnitude_mode"], "source_mean")
+        self.assertEqual(len(diagnostics["target_global_mean_residual_norms"]), 2)
+
+    def test_retain_aware_mode_uses_projected_target_global_basis(self):
+        targets = [
+            torch.tensor([[1.0, 0.0, 1.0]]),
+            torch.tensor([[0.0, 2.0, 2.0]]),
+        ]
+        anchors = [target + 1.0 for target in targets]
+        fixed_anchors = torch.tensor(
+            [[[0.0, 0.0, 0.0]], [[2.0, 1.0, 3.0]]]
+        )
+        retain_projection = torch.diag(torch.tensor([1.0, 1.0, 0.0]))
+
+        _, target_anchor_delta, diagnostics = build_target_anchor_statistics(
+            targets,
+            anchors,
+            anchor_mode="retain_aware_target_global_pairwise_residual_subspace",
+            residual_rank=2,
+            subspace_anchor_embeddings=fixed_anchors,
+            retain_projection=retain_projection,
+        )
+
+        torch.testing.assert_close(
+            target_anchor_delta[2],
+            torch.zeros_like(target_anchor_delta[2]),
+        )
+        self.assertTrue(diagnostics["retain_aware_subspace"])
+
     def test_target_global_mode_builds_the_basis_from_targets(self):
         targets = [
             torch.tensor([[3.0, 4.0, 0.0]]),

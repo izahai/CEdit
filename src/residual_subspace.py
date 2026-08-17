@@ -68,7 +68,12 @@ def build_global_pairwise_residual_matrix(
     return torch.cat(residual_blocks, dim=0)
 
 
-def _build_normalized_residual_basis(residual_matrix, rank, eps):
+def _build_normalized_residual_basis(
+    residual_matrix,
+    rank,
+    eps,
+    input_projection=None,
+):
     if residual_matrix.ndim != 2:
         raise ValueError("Residual matrix must be two-dimensional")
     if not isinstance(eps, (int, float)) or eps <= 0:
@@ -80,6 +85,21 @@ def _build_normalized_residual_basis(residual_matrix, rank, eps):
             f"Residual rank {rank} exceeds the maximum possible rank "
             f"{min(residual_matrix.shape)} for residual matrix shape "
             f"{tuple(residual_matrix.shape)}"
+        )
+
+    raw_residual_matrix = residual_matrix
+    if input_projection is not None:
+        if input_projection.ndim != 2:
+            raise ValueError("Residual input projection must be two-dimensional")
+        expected_shape = (residual_matrix.shape[1], residual_matrix.shape[1])
+        if input_projection.shape != expected_shape:
+            raise ValueError(
+                "Residual input projection shape must be "
+                f"{expected_shape}, got {tuple(input_projection.shape)}"
+            )
+        residual_matrix = residual_matrix @ input_projection.to(
+            device=residual_matrix.device,
+            dtype=residual_matrix.dtype,
         )
 
     residual_norms = torch.linalg.vector_norm(residual_matrix, dim=1)
@@ -108,6 +128,11 @@ def _build_normalized_residual_basis(residual_matrix, rank, eps):
         "subspace_requested_rank": int(rank),
         "subspace_basis_rank": basis_rank,
         "subspace_normalized_before_svd": True,
+        "subspace_input_projected": input_projection is not None,
+        "subspace_input_projection_relative_change": (
+            torch.linalg.vector_norm(raw_residual_matrix - residual_matrix)
+            / torch.linalg.vector_norm(raw_residual_matrix).clamp_min(eps)
+        ).item(),
         "subspace_singular_values": singular_values[:5].tolist(),
         "subspace_zero_norm_residual_count": int((residual_norms <= eps).sum().item()),
     }
@@ -214,6 +239,7 @@ def _build_norm_matched_directions(context, primary_vectors, primary_sign, eps):
     basis = context["basis"]
     flattened_legacy = context["flattened_legacy"]
     legacy_norms = context["legacy_norms"]
+    output_norms = context.get("output_norms", legacy_norms)
 
     projected_primary = _project_onto_basis(primary_vectors, basis)
     projected_primary_norms = torch.linalg.vector_norm(projected_primary, dim=1)
@@ -236,14 +262,14 @@ def _build_norm_matched_directions(context, primary_vectors, primary_sign, eps):
     )
     unit_directions[basis_fallback_mask] = basis[0]
 
-    flattened_residuals = legacy_norms.unsqueeze(1) * unit_directions
+    flattened_residuals = output_norms.unsqueeze(1) * unit_directions
     projected_new_residuals = _project_onto_basis(flattened_residuals, basis)
     subspace_errors = torch.linalg.vector_norm(
         flattened_residuals - projected_new_residuals,
         dim=1,
     )
     norm_errors = (
-        torch.linalg.vector_norm(flattened_residuals, dim=1) - legacy_norms
+        torch.linalg.vector_norm(flattened_residuals, dim=1) - output_norms
     ).abs()
     diagnostics = {
         "subspace_max_norm_error": norm_errors.max().item(),
@@ -352,6 +378,8 @@ def build_global_pairwise_residual_subspace_residuals(
     extra_anchor_embeddings,
     rank,
     eps=1e-8,
+    residual_input_projection=None,
+    magnitude_mode="legacy",
 ):
     """Build negative-target residuals from a global pairwise residual basis."""
     if target_embeddings.ndim < 2:
@@ -372,20 +400,48 @@ def build_global_pairwise_residual_subspace_residuals(
         concept_embeddings,
         extra_anchor_embeddings,
     )
+    if magnitude_mode not in {"legacy", "source_mean"}:
+        raise ValueError(f"Invalid residual magnitude mode: {magnitude_mode}")
+    if (
+        magnitude_mode == "source_mean"
+        and concept_embeddings.shape[0] != target_embeddings.shape[0]
+    ):
+        raise ValueError(
+            "Source-mean residual magnitudes require the global concepts to "
+            "match the target embeddings"
+        )
     basis, basis_diagnostics = _build_normalized_residual_basis(
         global_residuals,
         rank=rank,
         eps=eps,
+        input_projection=residual_input_projection,
     )
 
     legacy_residuals = anchor_embeddings - target_embeddings
     pair_count = target_embeddings.shape[0]
     flattened_targets = target_embeddings.reshape(pair_count, -1).float()
     flattened_legacy = legacy_residuals.reshape(pair_count, -1).float()
+    legacy_norms = torch.linalg.vector_norm(flattened_legacy, dim=1)
+    source_mean_norms = None
+    if magnitude_mode == "source_mean":
+        residuals_per_source = concept_embeddings.shape[0] + 1
+        source_residual_norms = torch.linalg.vector_norm(
+            global_residuals.reshape(
+                pair_count,
+                residuals_per_source,
+                global_residuals.shape[1],
+            ),
+            dim=2,
+        )
+        source_mean_norms = source_residual_norms.mean(dim=1)
+        magnitude_norms = source_mean_norms
+    else:
+        magnitude_norms = legacy_norms
     context = {
         "basis": basis,
         "flattened_legacy": flattened_legacy,
-        "legacy_norms": torch.linalg.vector_norm(flattened_legacy, dim=1),
+        "legacy_norms": legacy_norms,
+        "output_norms": magnitude_norms,
     }
     flattened_residuals, direction_diagnostics = _build_norm_matched_directions(
         context,
@@ -404,6 +460,7 @@ def build_global_pairwise_residual_subspace_residuals(
         "global_subspace_extra_anchor_count": int(extra_anchor_embeddings.shape[0]),
         "global_subspace_residual_count": int(global_residuals.shape[0]),
         "global_subspace_residual_shape": tuple(global_residuals.shape),
+        "subspace_magnitude_mode": magnitude_mode,
         "subspace_legacy_cosine_mean": _cosine_with_shift(
             flattened_targets, flattened_legacy, eps
         ).mean().item(),
@@ -414,6 +471,13 @@ def build_global_pairwise_residual_subspace_residuals(
             "subspace_primary_projection_fallback_count"
         ],
     })
+    if source_mean_norms is not None:
+        diagnostics.update({
+            "target_global_mean_residual_norms": source_mean_norms.tolist(),
+            "target_global_mean_residual_norm_mean": source_mean_norms.mean().item(),
+            "target_global_mean_residual_norm_min": source_mean_norms.min().item(),
+            "target_global_mean_residual_norm_max": source_mean_norms.max().item(),
+        })
     return residuals, diagnostics
 
 
@@ -446,6 +510,79 @@ def build_target_global_pairwise_residual_subspace_residuals(
         "target_global_subspace_residual_shape": diagnostics[
             "global_subspace_residual_shape"
         ],
+    })
+    return residuals, diagnostics
+
+
+def build_mean_norm_target_global_pairwise_residual_subspace_residuals(
+    target_embeddings,
+    anchor_embeddings,
+    extra_anchor_embeddings,
+    rank,
+    eps=1e-8,
+):
+    """Use each target's mean outgoing global-residual norm as its magnitude."""
+    residuals, diagnostics = build_global_pairwise_residual_subspace_residuals(
+        target_embeddings,
+        anchor_embeddings,
+        concept_embeddings=target_embeddings,
+        extra_anchor_embeddings=extra_anchor_embeddings,
+        rank=rank,
+        eps=eps,
+        magnitude_mode="source_mean",
+    )
+    diagnostics.update({
+        "target_global_subspace_target_count": diagnostics[
+            "global_subspace_concept_count"
+        ],
+        "target_global_subspace_extra_anchor_count": diagnostics[
+            "global_subspace_extra_anchor_count"
+        ],
+        "target_global_subspace_residual_count": diagnostics[
+            "global_subspace_residual_count"
+        ],
+        "target_global_subspace_residual_shape": diagnostics[
+            "global_subspace_residual_shape"
+        ],
+    })
+    return residuals, diagnostics
+
+
+def build_retain_aware_target_global_pairwise_residual_subspace_residuals(
+    target_embeddings,
+    anchor_embeddings,
+    extra_anchor_embeddings,
+    retain_projection,
+    rank,
+    eps=1e-8,
+):
+    """Build the target-global basis after projecting raw residuals to retain-low."""
+    if retain_projection is None:
+        raise ValueError("A retain-low projection is required")
+
+    residuals, diagnostics = build_global_pairwise_residual_subspace_residuals(
+        target_embeddings,
+        anchor_embeddings,
+        concept_embeddings=target_embeddings,
+        extra_anchor_embeddings=extra_anchor_embeddings,
+        rank=rank,
+        eps=eps,
+        residual_input_projection=retain_projection,
+    )
+    diagnostics.update({
+        "target_global_subspace_target_count": diagnostics[
+            "global_subspace_concept_count"
+        ],
+        "target_global_subspace_extra_anchor_count": diagnostics[
+            "global_subspace_extra_anchor_count"
+        ],
+        "target_global_subspace_residual_count": diagnostics[
+            "global_subspace_residual_count"
+        ],
+        "target_global_subspace_residual_shape": diagnostics[
+            "global_subspace_residual_shape"
+        ],
+        "retain_aware_subspace": True,
     })
     return residuals, diagnostics
 

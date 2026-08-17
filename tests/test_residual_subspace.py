@@ -7,7 +7,9 @@ from src.residual_subspace import (
     build_global_pairwise_residual_matrix,
     build_global_pairwise_residual_subspace_residuals,
     build_largest_anchor_cosine_subspace_residuals,
+    build_mean_norm_target_global_pairwise_residual_subspace_residuals,
     build_negative_target_normalized_residual_subspace_residuals,
+    build_retain_aware_target_global_pairwise_residual_subspace_residuals,
     build_smallest_cosine_subspace_residuals,
     build_target_global_pairwise_residual_subspace_residuals,
 )
@@ -145,6 +147,69 @@ class GlobalPairwiseResidualSubspaceTests(unittest.TestCase):
 
 
 class TargetGlobalPairwiseResidualSubspaceTests(unittest.TestCase):
+    def test_retain_aware_mode_projects_raw_residuals_before_normalization(self):
+        targets = torch.tensor(
+            [[[1.0, 0.0, 1.0]], [[0.0, 2.0, 2.0]]]
+        )
+        anchors = targets + torch.tensor(
+            [[[1.0, 1.0, 1.0]], [[2.0, 1.0, 1.0]]]
+        )
+        extra_anchors = torch.tensor(
+            [[[0.0, 0.0, 0.0]], [[2.0, 1.0, 3.0]]]
+        )
+        retain_projection = torch.diag(torch.tensor([1.0, 1.0, 0.0]))
+        captured = {}
+        exact_svd = torch.linalg.svd
+
+        def capture_svd(matrix, *args, **kwargs):
+            captured["matrix"] = matrix.detach().clone()
+            return exact_svd(matrix, *args, **kwargs)
+
+        with patch("src.residual_subspace.torch.linalg.svd", side_effect=capture_svd):
+            residuals, diagnostics = (
+                build_retain_aware_target_global_pairwise_residual_subspace_residuals(
+                    targets,
+                    anchors,
+                    extra_anchor_embeddings=extra_anchors,
+                    retain_projection=retain_projection,
+                    rank=2,
+                )
+            )
+
+        expected = build_global_pairwise_residual_matrix(targets, extra_anchors)
+        expected = expected @ retain_projection
+        expected = expected / expected.norm(dim=1, keepdim=True)
+        torch.testing.assert_close(captured["matrix"], expected)
+        torch.testing.assert_close(
+            residuals[..., 2],
+            torch.zeros_like(residuals[..., 2]),
+        )
+        self.assertTrue(diagnostics["subspace_input_projected"])
+        self.assertTrue(diagnostics["retain_aware_subspace"])
+
+    def test_retain_aware_mode_requires_a_compatible_projection(self):
+        targets = torch.tensor([[[1.0, 0.0, 1.0]]])
+        extra_anchors = torch.tensor(
+            [[[0.0, 0.0, 0.0]], [[2.0, 1.0, 3.0]]]
+        )
+
+        with self.assertRaisesRegex(ValueError, "retain-low projection"):
+            build_retain_aware_target_global_pairwise_residual_subspace_residuals(
+                targets,
+                targets + 1.0,
+                extra_anchor_embeddings=extra_anchors,
+                retain_projection=None,
+                rank=1,
+            )
+        with self.assertRaisesRegex(ValueError, "projection shape"):
+            build_retain_aware_target_global_pairwise_residual_subspace_residuals(
+                targets,
+                targets + 1.0,
+                extra_anchor_embeddings=extra_anchors,
+                retain_projection=torch.eye(2),
+                rank=1,
+            )
+
     def test_uses_only_targets_and_fixed_anchors_for_the_basis(self):
         targets = torch.tensor(
             [[[1.0, 0.0]], [[0.0, 2.0]], [[3.0, 3.0]]]
@@ -173,6 +238,7 @@ class TargetGlobalPairwiseResidualSubspaceTests(unittest.TestCase):
         expected = build_global_pairwise_residual_matrix(targets, extra_anchors)
         expected = expected / expected.norm(dim=1, keepdim=True)
         torch.testing.assert_close(captured["matrix"], expected)
+        self.assertFalse(diagnostics["subspace_input_projected"])
         self.assertEqual(
             diagnostics["target_global_subspace_target_count"],
             3,
@@ -212,6 +278,38 @@ class TargetGlobalPairwiseResidualSubspaceTests(unittest.TestCase):
         )
         self.assertLess(diagnostics["subspace_max_projection_error"], 1e-6)
         self.assertEqual(diagnostics["subspace_basis_rank"], 1)
+
+    def test_mean_norm_mode_uses_each_targets_mean_outgoing_residual_norm(self):
+        targets = torch.tensor(
+            [[[1.0, 1.0]], [[4.0, 1.0]]]
+        )
+        legacy_anchors = targets + torch.tensor(
+            [[[7.0, 0.0]], [[0.0, 8.0]]]
+        )
+        extra_anchors = torch.tensor(
+            [[[1.0, 5.0]], [[5.0, 4.0]]]
+        )
+
+        residuals, diagnostics = (
+            build_mean_norm_target_global_pairwise_residual_subspace_residuals(
+                targets,
+                legacy_anchors,
+                extra_anchor_embeddings=extra_anchors,
+                rank=2,
+            )
+        )
+
+        expected_norms = torch.tensor([
+            (3.0 + 4.0 + 5.0) / 3.0,
+            (3.0 + 5.0 + torch.sqrt(torch.tensor(10.0))) / 3.0,
+        ])
+        torch.testing.assert_close(residuals.norm(dim=2), expected_norms[:, None])
+        torch.testing.assert_close(
+            torch.tensor(diagnostics["target_global_mean_residual_norms"]),
+            expected_norms,
+        )
+        self.assertEqual(diagnostics["subspace_magnitude_mode"], "source_mean")
+        self.assertLess(diagnostics["subspace_max_norm_error"], 1e-6)
 
 
 class SmallestCosineSubspaceResidualTests(unittest.TestCase):

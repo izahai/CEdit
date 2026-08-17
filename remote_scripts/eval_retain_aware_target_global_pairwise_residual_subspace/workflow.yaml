@@ -1,0 +1,28 @@
+# Runtime used by every workflow step.
+runtime:
+  python_bin: /venv/main/bin/python
+  gpu_id: 0
+
+repositories:
+  cedit_branch: main
+  cedit_repository: https://github.com/izahai/CEdit.git
+  ce_eval_repository: https://github.com/izahai/CE-Eval.git
+  ce_eval_branch: main
+
+experiment:
+  sd_ckpt: CompVis/stable-diffusion-v1-4
+  anchor_mode: retain_aware_target_global_pairwise_residual_subspace
+  benchmark_names:
+    - 10_celebrity
+    - 50_celebrity
+    - 100_celebrity
+  batch_size: 10
+  expected_images_per_split: 500
+  gcd_use_cuda: true
+  gcd_num_workers: 8
+  gcd_batch_size: 32
+  gcd_prefetch_factor: 2
+
+paths:
+  ce_eval_root: ${WORKSPACE_DIR}/CE-Eval
+  output_root: ${WORKSPACE_DIR}/cedit_ce_eval_outputs_retain_aware_target_global_pairwise_residual_subspace

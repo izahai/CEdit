@@ -4,6 +4,31 @@ This workflow trains and evaluates `target_global_pairwise_residual_subspace`
 for the 10, 50, and 100 celebrity benchmarks. The residual subspace uses only
 erase targets, `""`, and `"person"`.
 
+This is a single-method workflow. It does not generate or evaluate the original
+model or the legacy SPEED method. Its training settings match
+`eval_paper_comparison/train_config_target_global_pairwise_residual_subspace.yaml`.
+
+## Quick retain-low rank inspection
+
+On a fresh Vast PyTorch server, upload this repository as described below and
+run the standalone inspection script:
+
+```bash
+cd /workspace/CEdit
+bash remote_scripts/eval_target_global_pairwise_residual_subspace/inspect_retain_low_rank.sh
+```
+
+The script installs only the packages needed for inspection, downloads only the
+Stable Diffusion tokenizer and text encoder, and prints the retain-low rank for
+the 10-, 50-, and 100-celebrity retain sets. It does not train, sample, clone
+CE-Eval, or run GCD. By default it reads `threshold` from `train_config.yaml`.
+Override it without editing the config:
+
+```bash
+THRESHOLD=0.00001 \
+  bash remote_scripts/eval_target_global_pairwise_residual_subspace/inspect_retain_low_rank.sh
+```
+
 ## 1. Create the Vast instance
 
 Choose an RTX 5090 PyTorch image with CUDA 12.8 or newer and at least 50 GB of
@@ -12,8 +37,8 @@ disk. Vast normally opens the SSH shell inside tmux.
 Set the new instance connection details on your local Mac:
 
 ```bash
-export VAST_HOST='180.189.55.38'
-export VAST_PORT='47897'
+export VAST_HOST='175.121.93.64'
+export VAST_PORT='45291'
 ```
 
 Upload the repository with the macOS-compatible rsync command:
@@ -34,7 +59,7 @@ Keep the trailing `/` after `CEdit/`.
 ## 2. Connect and run
 
 ```bash
-ssh -p "${VAST_PORT}" -L 8080:localhost:8080 "root@${VAST_HOST}"
+ssh -p 45291 -L 8080:localhost:8080 root@175.121.93.64
 cd /workspace/CEdit
 nvidia-smi
 /venv/main/bin/python -c \
@@ -120,3 +145,35 @@ scp -P "${VAST_PORT}" \
 
 Do not run `tail -f /workspace/tmux-log.log` inside the logged tmux pane; that
 would feed the log back into itself.
+
+Retain-low threshold: 1e-04
+10_celebrity: retain_texts=100 | erase_targets=10 | threshold=0.0001 | retain_low_rank=668/768
+50_celebrity: retain_texts=100 | erase_targets=50 | threshold=0.0001 | retain_low_rank=668/768
+100_celebrity: retain_texts=100 | erase_targets=100 | threshold=0.0001 | retain_low_rank=668/768
+
+Retain-low threshold: 1e-05
+10_celebrity: retain_texts=100 | erase_targets=10 | threshold=1e-05 | retain_low_rank=644/768
+50_celebrity: retain_texts=100 | erase_targets=50 | threshold=1e-05 | retain_low_rank=644/768
+100_celebrity: retain_texts=100 | erase_targets=100 | threshold=1e-05 | retain_low_rank=644/768
+
+Retain-low threshold: 1e-06
+10_celebrity: retain_texts=100 | erase_targets=10 | threshold=1e-06 | retain_low_rank=340/768
+50_celebrity: retain_texts=100 | erase_targets=50 | threshold=1e-06 | retain_low_rank=340/768
+100_celebrity: retain_texts=100 | erase_targets=100 | threshold=1e-06 | retain_low_rank=340/768
+
+Retain-low threshold: 1e-07
+10_celebrity: retain_texts=100 | erase_targets=10 | threshold=1e-07 | retain_low_rank=41/768
+50_celebrity: retain_texts=100 | erase_targets=50 | threshold=1e-07 | retain_low_rank=41/768
+100_celebrity: retain_texts=100 | erase_targets=100 | threshold=1e-07 | retain_low_rank=41/768
+
+Retain-low threshold: 1e-08
+10_celebrity: retain_texts=100 | erase_targets=10 | threshold=1e-08 | retain_low_rank=6/768
+50_celebrity: retain_texts=100 | erase_targets=50 | threshold=1e-08 | retain_low_rank=6/768
+100_celebrity: retain_texts=100 | erase_targets=100 | threshold=1e-08 | retain_low_rank=6/768
+
+Retain-low threshold: 1e-09
+10_celebrity: retain_texts=100 | erase_targets=10 | threshold=1e-09 | retain_low_rank=0/768
+50_celebrity: retain_texts=100 | erase_targets=50 | threshold=1e-09 | retain_low_rank=0/768
+100_celebrity: retain_texts=100 | erase_targets=100 | threshold=1e-09 | retain_low_rank=0/768
+
+
