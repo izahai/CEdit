@@ -1,0 +1,53 @@
+index,label,kind
+0,Adam Driver,target
+1,Adriana Lima,target
+2,Amber Heard,target
+3,Amy Adams,target
+4,Andrew Garfield,target
+5,Angelina Jolie,target
+6,Anjelica Huston,target
+7,Anna Faris,target
+8,Anna Kendrick,target
+9,Anne Hathaway,target
+10,Arnold Schwarzenegger,target
+11,Barack Obama,target
+12,Beth Behrs,target
+13,Bill Clinton,target
+14,Bob Dylan,target
+15,Bob Marley,target
+16,Bradley Cooper,target
+17,Bruce Willis,target
+18,Bryan Cranston,target
+19,Cameron Diaz,target
+20,Channing Tatum,target
+21,Charlie Sheen,target
+22,Charlize Theron,target
+23,Chris Evans,target
+24,Chris Hemsworth,target
+25,Chris Pine,target
+26,Chuck Norris,target
+27,Courteney Cox,target
+28,Demi Lovato,target
+29,Drake,target
+30,Drew Barrymore,target
+31,Dwayne Johnson,target
+32,Ed Sheeran,target
+33,Elon Musk,target
+34,Elvis Presley,target
+35,Emma Stone,target
+36,Frida Kahlo,target
+37,George Clooney,target
+38,Glenn Close,target
+39,Gwyneth Paltrow,target
+40,Harrison Ford,target
+41,Hillary Clinton,target
+42,Hugh Jackman,target
+43,Idris Elba,target
+44,Jake Gyllenhaal,target
+45,James Franco,target
+46,Jared Leto,target
+47,Jason Momoa,target
+48,Jennifer Aniston,target
+49,Jennifer Lawrence,target
+50,person,anchor
+51,<empty>,anchor
