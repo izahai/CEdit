@@ -1,0 +1,18 @@
+# Reproduces the effective training arguments in scripts/eval_multi.sh.
+sd_ckpt: CompVis/stable-diffusion-v1-4
+seed: 0
+
+anchor_concepts:
+  - person
+anchor_mode: legacy
+
+baseline: SPEED
+params: V
+aug_num: 10
+threshold: 0.0001
+retain_scale: 0.05
+lamb: 0.0
+disable_filter: true
+
+heads: concept
+file_name: weight
