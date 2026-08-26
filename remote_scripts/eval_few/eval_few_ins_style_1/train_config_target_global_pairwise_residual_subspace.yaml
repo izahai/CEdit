@@ -1,0 +1,18 @@
+# Matches the few-concept legacy setup except for TGPRS and augmentation.
+sd_ckpt: CompVis/stable-diffusion-v1-4
+seed: 0
+
+anchor_mode: target_global_pairwise_residual_subspace
+residual_rank: 30
+residual_scale: 1.0
+
+baseline: SPEED
+params: V
+aug_num: 0
+threshold: 0.1
+retain_scale: 1.0
+lamb: 0.0
+disable_filter: false
+
+heads: concept
+file_name: weight

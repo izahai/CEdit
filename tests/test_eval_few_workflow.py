@@ -5,13 +5,13 @@ from pathlib import Path
 
 import yaml
 
-from remote_scripts.eval_few.evaluate_clip_fid import (
+from remote_scripts.eval_few.eval_few_ins_style_1.evaluate_clip_fid import (
     build_comparison_rows,
     few_prompt_records,
     summarize_detailed_rows,
     validate_image_directory,
 )
-from remote_scripts.eval_few.workflow_config import (
+from remote_scripts.eval_few.eval_few_ins_style_1.workflow_config import (
     EXPECTED_METHODS,
     expected_image_counts,
     load_config,
@@ -20,7 +20,9 @@ from remote_scripts.eval_few.workflow_config import (
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-WORKFLOW_DIR = REPO_ROOT / "remote_scripts" / "eval_few"
+WORKFLOW_DIR = (
+    REPO_ROOT / "remote_scripts" / "eval_few" / "eval_few_ins_style_1"
+)
 
 
 class EvalFewWorkflowTests(unittest.TestCase):
@@ -50,6 +52,11 @@ class EvalFewWorkflowTests(unittest.TestCase):
         config = load_config(WORKFLOW_DIR / "workflow_smoke.yaml")
         self.assertEqual(expected_image_counts(config)["total"], 170)
         self.assertEqual(len(task_specs(config)), 2)
+        self.assertEqual(config["experiment"]["fid_feature_layer"], 64)
+
+    def test_full_workflow_uses_standard_fid_feature_layer(self):
+        config = load_config(WORKFLOW_DIR / "workflow.yaml")
+        self.assertEqual(config["experiment"]["fid_feature_layer"], 2048)
 
     def test_prompt_records_match_sample_filename_and_legacy_clip_text(self):
         records = few_prompt_records(["a photo of a {}."], "Snoopy", 2)
