@@ -34,6 +34,7 @@ generate_original_mscoco() {
         --mode original \
         --num_samples 1 \
         --batch_size "${MSCOCO_BATCH_SIZE}" \
+        --total_timesteps "${INFERENCE_TIMESTEPS}" \
         --save_root "${MSCOCO_IMAGE_ROOT}"
 
     image_count="$(count_pngs "${image_dir}")"
@@ -67,6 +68,7 @@ generate_edited_mscoco() {
         --mode edit \
         --num_samples 1 \
         --batch_size "${MSCOCO_BATCH_SIZE}" \
+        --total_timesteps "${INFERENCE_TIMESTEPS}" \
         --save_root "${MSCOCO_IMAGE_ROOT}/${method}" \
         --edit_ckpt "${checkpoint_path}"
 

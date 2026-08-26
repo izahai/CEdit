@@ -43,6 +43,7 @@ for benchmark_name in "${BENCHMARK_NAMES[@]}"; do
         --mode original \
         --num_samples 1 \
         --batch_size "${BATCH_SIZE}" \
+        --total_timesteps "${INFERENCE_TIMESTEPS}" \
         --save_root "${image_root}"
 
     for split in erase retain; do

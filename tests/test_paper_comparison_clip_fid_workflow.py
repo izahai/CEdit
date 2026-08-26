@@ -30,13 +30,14 @@ class PaperComparisonClipFidWorkflowTests(unittest.TestCase):
                 environment = build_environment(config, str(WORKFLOW_DIR))
 
         self.assertEqual(environment["MSCOCO_NUM_PROMPTS"], 1000)
+        self.assertEqual(environment["INFERENCE_TIMESTEPS"], 50)
         self.assertEqual(environment["CLIP_BATCH_SIZE"], 32)
         self.assertEqual(
             environment["CLIP_MODEL"], "openai/clip-vit-large-patch14"
         )
         self.assertTrue(
             environment["OUTPUT_ROOT"].endswith(
-                "cedit_ce_eval_outputs_paper_comparison_clip_fid"
+                "cedit_ce_eval_outputs_paper_comparison_clip_fid_50_steps"
             )
         )
 
@@ -92,6 +93,23 @@ class PaperComparisonClipFidWorkflowTests(unittest.TestCase):
         )
 
         self.assertIn('"scipy<1.18"', setup_script)
+
+    def test_every_sampling_call_uses_configured_inference_timesteps(self):
+        sample_call_count = 0
+        timestep_argument_count = 0
+        for script_name in (
+            "02_generate_original.sh",
+            "04_infer_edits.sh",
+            "07_generate_mscoco.sh",
+        ):
+            script = (WORKFLOW_DIR / script_name).read_text(encoding="utf-8")
+            sample_call_count += script.count('"${PYTHON_BIN}" sample2.py')
+            timestep_argument_count += script.count(
+                '--total_timesteps "${INFERENCE_TIMESTEPS}"'
+            )
+
+        self.assertEqual(sample_call_count, 4)
+        self.assertEqual(timestep_argument_count, sample_call_count)
 
 
 if __name__ == "__main__":

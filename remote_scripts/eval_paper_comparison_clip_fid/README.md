@@ -5,6 +5,9 @@ SPEED configuration, and `target_global_pairwise_residual_subspace` on the
 10-, 50-, and 100-celebrity erase/retain benchmarks. For every trained
 checkpoint, it also generates the first 1,000 MS-COCO prompts and reports
 paper-style CLIP score and FID against one shared original SD v1.4 image set.
+All Stable Diffusion sampling uses 50 denoising timesteps, configured by
+`experiment.inference_timesteps` in `workflow.yaml`. Override it with the
+`INFERENCE_TIMESTEPS` environment variable when needed.
 
 ## Upload and run
 
@@ -12,8 +15,8 @@ Create an RTX 5090 Vast instance with a CUDA 12.8+ PyTorch image and at least
 100 GB of disk. Set its connection details on your Mac:
 
 ```bash
-export VAST_HOST='180.189.55.38'
-export VAST_PORT='57112'
+export VAST_HOST='180.189.55.43'
+export VAST_PORT='14726'
 ```
 
 Upload the repository using the macOS-compatible rsync progress option:
@@ -32,7 +35,7 @@ rsync -az --progress \
 Connect to the instance and run the workflow inside Vast's tmux session:
 
 ```bash
-ssh -p 57112 root@180.189.55.38 -L 8080:localhost:8080
+ssh -p 14726 root@180.189.55.43 -L 8080:localhost:8080
 cd /workspace/CEdit
 nvidia-smi
 bash remote_scripts/eval_paper_comparison_clip_fid/run_all.sh
@@ -81,7 +84,7 @@ Count generated images from the local machine:
 
 ```bash
 ssh -p "${VAST_PORT}" "root@${VAST_HOST}" \
-  'find /workspace/cedit_ce_eval_outputs_paper_comparison_clip_fid -type f -name "*.png" 2>/dev/null | wc -l'
+  'find /workspace/cedit_ce_eval_outputs_paper_comparison_clip_fid_50_steps -type f -name "*.png" 2>/dev/null | wc -l'
 ```
 
 A complete run has 16,000 images: 9,000 celebrity images, one shared set of
@@ -92,7 +95,7 @@ A complete run has 16,000 images: 9,000 celebrity images, one shared set of
 Outputs are written under:
 
 ```text
-/workspace/cedit_ce_eval_outputs_paper_comparison_clip_fid/
+/workspace/cedit_ce_eval_outputs_paper_comparison_clip_fid_50_steps/
 ├── checkpoints/{legacy,target_global_pairwise_residual_subspace}/<benchmark>/weight.pt
 ├── images/<method>/<benchmark>/<benchmark>/{erase,retain}/{original,edit}/*.png
 ├── mscoco/
@@ -110,7 +113,7 @@ directory:
 ```bash
 scp -P "${VAST_PORT}" "root@${VAST_HOST}:/workspace/tmux-log.log" .
 scp -P "${VAST_PORT}" \
-  "root@${VAST_HOST}:/workspace/cedit_ce_eval_outputs_paper_comparison_clip_fid/gcd/summary.csv" \
+  "root@${VAST_HOST}:/workspace/cedit_ce_eval_outputs_paper_comparison_clip_fid_50_steps/gcd/summary.csv" \
   .
 ```
 

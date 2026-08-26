@@ -41,6 +41,7 @@ for method in legacy target_global_pairwise_residual_subspace; do
             --mode edit \
             --num_samples 1 \
             --batch_size "${BATCH_SIZE}" \
+            --total_timesteps "${INFERENCE_TIMESTEPS}" \
             --save_root "${image_root}" \
             --edit_ckpt "${checkpoint_path}"
 

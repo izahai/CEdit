@@ -73,6 +73,10 @@ def build_environment(config, workflow_dir):
         "BATCH_SIZE": get_value(
             "BATCH_SIZE", required(config, "experiment", "batch_size")
         ),
+        "INFERENCE_TIMESTEPS": get_value(
+            "INFERENCE_TIMESTEPS",
+            required(config, "experiment", "inference_timesteps"),
+        ),
         "EXPECTED_IMAGES_PER_SPLIT": get_value(
             "EXPECTED_IMAGES_PER_SPLIT",
             required(config, "experiment", "expected_images_per_split"),

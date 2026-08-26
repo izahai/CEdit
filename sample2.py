@@ -56,6 +56,7 @@ def main():
     parser.add_argument('--total_timesteps', type=int, default=20, help='The total timesteps of the sampling process')
     parser.add_argument('--num_samples', type=int, default=10, help='The number of samples per prompt to generate' )
     parser.add_argument('--batch_size', type=int, default=10, help='The batch size of the sampling process')
+    parser.add_argument('--max_samples', type=int, default=None, help='Optional maximum number of dataset records to sample; COCO defaults to 1000')
     parser.add_argument('--prompts', type=str, default=None)
     # Erasing Config
     parser.add_argument('--erase_type', type=str, default='', help='instance, style, celebrity')
@@ -63,6 +64,8 @@ def main():
     parser.add_argument('--contents', type=str, default='')
     parser.add_argument('--edit_ckpt', type=str, required=False)
     args = parser.parse_args()
+    if args.max_samples is not None and args.max_samples <= 0:
+        parser.error('--max_samples must be a positive integer')
 
     bs = args.batch_size
     mode_list = args.mode.replace(' ', '').split(',')
@@ -80,11 +83,23 @@ def main():
 
     # Sampling process
     if args.contents == 'nudity':
-        dataset = AdaDataset(data_path='data/i2p_benchmark.csv')
+        dataset = AdaDataset(
+            data_path='data/i2p_benchmark.csv',
+            max_num=args.max_samples or 100000,
+        )
     elif args.contents == 'coco':
-        dataset = AdaDataset(data_path ='data/mscoco.csv', seed=args.seed, guidance_scale=args.guidance_scale, max_num=1000)
+        dataset = AdaDataset(
+            data_path='data/mscoco.csv',
+            seed=args.seed,
+            guidance_scale=args.guidance_scale,
+            max_num=args.max_samples or 1000,
+        )
     elif 'erase' in args.contents or 'retain' in args.contents:
-        dataset = AdaDataset(data_path =f'data/{args.erase_type}.csv', guidance_scale=args.guidance_scale)
+        dataset = AdaDataset(
+            data_path=f'data/{args.erase_type}.csv',
+            guidance_scale=args.guidance_scale,
+            max_num=args.max_samples or 100000,
+        )
     dataloader = DataLoader(dataset, batch_size=bs, drop_last=False)
 
     for content in args.contents.split(', '):
@@ -93,20 +108,26 @@ def main():
                 continue
 
             save_images = {}
-            latent = torch.randn((bs, 4, 64, 64), generator=torch.Generator('cpu').manual_seed(data['seed'][0].item())).to(pipe.device, dtype=pipe.dtype)
+            current_batch_size = len(data['prompt'])
+            latent = torch.randn(
+                (current_batch_size, 4, 64, 64),
+                generator=torch.Generator('cpu').manual_seed(
+                    data['seed'][0].item()
+                ),
+            ).to(pipe.device, dtype=pipe.dtype)
             embedding = get_textencoding(get_token(data['prompt'], tokenizer), text_encoder)
 
             if 'original' in mode_list:
                 save_images['original'] = diffusion(unet=unet, scheduler=pipe.scheduler, 
                                                 latents=latent, start_timesteps=0, 
-                                                text_embeddings=torch.cat([uncond_embedding] * bs + [embedding], dim=0), 
+                                                text_embeddings=torch.cat([uncond_embedding] * current_batch_size + [embedding], dim=0),
                                                 total_timesteps=args.total_timesteps, 
                                                 guidance_scale=args.guidance_scale, 
                                                 desc=f"{count * len(data['prompt'])} x prompts | original")
             if 'edit' in mode_list:
                 save_images['edit'] = diffusion(unet=unet_edit, scheduler=pipe.scheduler,
                                             latents=latent, start_timesteps=0, 
-                                            text_embeddings=torch.cat([uncond_embedding] * bs + [embedding], dim=0), 
+                                            text_embeddings=torch.cat([uncond_embedding] * current_batch_size + [embedding], dim=0),
                                             total_timesteps=args.total_timesteps, 
                                             guidance_scale=args.guidance_scale, 
                                             desc=f"{count * len(data['prompt'])} x prompts | edit")

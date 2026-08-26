@@ -20,6 +20,7 @@ experiment:
     - 50_celebrity
     - 100_celebrity
   batch_size: 10
+  inference_timesteps: 50
   expected_images_per_split: 500
   mscoco_num_prompts: 1000
   mscoco_batch_size: 10
@@ -32,4 +33,4 @@ experiment:
 
 paths:
   ce_eval_root: ${WORKSPACE_DIR}/CE-Eval
-  output_root: ${WORKSPACE_DIR}/cedit_ce_eval_outputs_paper_comparison_clip_fid
+  output_root: ${WORKSPACE_DIR}/cedit_ce_eval_outputs_paper_comparison_clip_fid_50_steps
