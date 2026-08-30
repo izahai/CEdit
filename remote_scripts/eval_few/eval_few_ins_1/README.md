@@ -16,9 +16,10 @@ The checkpoints erase `Snoopy`, `Snoopy + Mickey`, and
 `Snoopy + Mickey + Spongebob` into the null prompt. Every checkpoint is sampled
 on all five configured instance contents and on the first 1,000 MS-COCO prompts.
 
-The current TGPRS training config supplies ten extra subspace anchors. TGPRS
-keeps nominal rank 30 but uses the full feasible target-global span for these
-tasks: rank 10, 11, or 12 for one, two, or three targets. Sampling uses
+The current TGPRS training config supplies eleven extra subspace anchors,
+including the null prompt. TGPRS keeps nominal rank 30 but uses the full
+feasible target-global span for these tasks: rank 11, 12, or 13 for one, two,
+or three targets. Sampling uses
 seed 0, DPM-Solver, 20 denoising steps, CFG 7.5, and the same latent sequence for
 original and edited images.
 
@@ -49,7 +50,7 @@ From the local repository:
 
 ```bash
 export VAST_HOST='180.189.55.43'
-export VAST_PORT='30824'
+export VAST_PORT='25510'
 
 rsync -az --progress \
   --exclude='.git/' \

@@ -6,6 +6,7 @@ anchor_mode: target_global_pairwise_residual_subspace
 residual_rank: 30
 residual_scale: 1.0
 subspace_anchor_concepts:
+  - ""
   - Cheerful Cartoon Mouse
   - Playful Cartoon Dog
   - Goofy Sea Creature
@@ -20,7 +21,7 @@ subspace_anchor_concepts:
 baseline: SPEED
 params: V
 aug_num: 0
-threshold: 0.1
+threshold: 0.034
 retain_scale: 1.0
 lamb: 0.0
 disable_filter: false
