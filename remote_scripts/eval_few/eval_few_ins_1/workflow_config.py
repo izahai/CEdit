@@ -19,6 +19,8 @@ METHOD_TGPRS = "target_global_pairwise_residual_subspace"
 EXPECTED_METHODS = [METHOD_ORIGINAL, METHOD_LEGACY, METHOD_TGPRS]
 EXPECTED_EDITED_METHODS = [METHOD_LEGACY, METHOD_TGPRS]
 FID_FEATURE_LAYERS = {"64", "192", "768", "2048"}
+DEFAULT_SUBSPACE_ANCHOR_CONCEPTS = ["", "person"]
+INTERNAL_TGPRS_CONFIG = "_resolved_tgprs_train_config"
 FIELD_SEPARATOR = "\x1f"
 
 
@@ -63,6 +65,43 @@ def _string_list(value, label, allow_empty_items=False):
     return value
 
 
+def _subspace_anchor_list(value, label):
+    if not isinstance(value, list):
+        raise ValueError(f"{label} must be a list")
+    if not all(isinstance(item, str) for item in value):
+        raise ValueError(f"{label} must contain only strings")
+    if any("\n" in item or "\r" in item for item in value):
+        raise ValueError(f"{label} cannot contain newline characters")
+    return list(value)
+
+
+def _load_tgprs_train_config(workflow_dir):
+    path = (
+        Path(workflow_dir)
+        / "train_config_target_global_pairwise_residual_subspace.yaml"
+    )
+    if path.is_file():
+        with path.open(encoding="utf-8") as config_file:
+            config = yaml.safe_load(config_file) or {}
+        if not isinstance(config, dict):
+            raise ValueError(f"TGPRS training config must be a mapping: {path}")
+    else:
+        config = {}
+    residual_rank = config.get("residual_rank", 30)
+    _positive_integer(residual_rank, "TGPRS residual_rank")
+    anchors = _subspace_anchor_list(
+        config.get(
+            "subspace_anchor_concepts",
+            DEFAULT_SUBSPACE_ANCHOR_CONCEPTS,
+        ),
+        "TGPRS subspace_anchor_concepts",
+    )
+    return {
+        "residual_rank": residual_rank,
+        "subspace_anchor_concepts": anchors,
+    }
+
+
 def _default_templates():
     repo_root = Path(__file__).resolve().parents[3]
     if str(repo_root) not in sys.path:
@@ -78,6 +117,7 @@ def load_config(path):
         config = yaml.safe_load(config_file)
     if not isinstance(config, dict):
         raise ValueError("Workflow YAML must contain a mapping")
+    config[INTERNAL_TGPRS_CONFIG] = _load_tgprs_train_config(path.parent)
     validate_config(config)
     return config
 
@@ -157,15 +197,46 @@ def task_specs(config):
             )
 
         target_count = len(targets)
+        tgprs_config = config.get(INTERNAL_TGPRS_CONFIG, {
+            "residual_rank": 30,
+            "subspace_anchor_concepts": DEFAULT_SUBSPACE_ANCHOR_CONCEPTS,
+        })
+        has_subspace_anchor_override = "subspace_anchor_concepts" in raw_task
+        if has_subspace_anchor_override:
+            subspace_anchor_concepts = _subspace_anchor_list(
+                raw_task["subspace_anchor_concepts"],
+                f"{label}.subspace_anchor_concepts",
+            )
+        else:
+            subspace_anchor_concepts = list(
+                tgprs_config["subspace_anchor_concepts"]
+            )
+        subspace_anchor_count = len(subspace_anchor_concepts)
+        residuals_per_target = target_count - 1 + subspace_anchor_count
+        if residuals_per_target == 0:
+            raise ValueError(
+                f"{label} produces no TGPRS residual vectors; configure at "
+                "least two targets or one subspace anchor"
+            )
+        configured_residual_rank = tgprs_config["residual_rank"]
+        max_residual_rank = target_count + subspace_anchor_count - 1
         tasks.append({
             "id": task_id,
             "erase_type": erase_type,
             "target_concepts": list(targets),
             "anchor_concept": anchor,
             "target_count": target_count,
-            "configured_residual_rank": 30,
-            "applied_residual_rank": min(30, target_count + 1),
-            "target_global_residual_count": target_count * (target_count + 1),
+            "configured_residual_rank": configured_residual_rank,
+            "applied_residual_rank": min(
+                configured_residual_rank,
+                max_residual_rank,
+            ),
+            "target_global_residual_count": (
+                target_count * residuals_per_target
+            ),
+            "subspace_anchor_concepts": subspace_anchor_concepts,
+            "subspace_anchor_count": subspace_anchor_count,
+            "has_subspace_anchor_override": has_subspace_anchor_override,
             "contents": list(contents),
             "prompt_templates": list(domains[erase_type]["prompt_templates"]),
         })
@@ -333,8 +404,17 @@ def _print_rows(rows):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=Path, required=True)
+    parser.add_argument("--task-id")
     parser.add_argument(
-        "command", choices=("export", "domains", "tasks", "counts", "validate")
+        "command",
+        choices=(
+            "export",
+            "domains",
+            "tasks",
+            "task-anchors",
+            "counts",
+            "validate",
+        ),
     )
     args = parser.parse_args()
     try:
@@ -372,6 +452,20 @@ def main():
                 )
                 for task in task_specs(config)
             ])
+        elif args.command == "task-anchors":
+            if not args.task_id:
+                raise ValueError("--task-id is required for task-anchors")
+            matches = [
+                task for task in task_specs(config) if task["id"] == args.task_id
+            ]
+            if not matches:
+                raise ValueError(f"Unknown task id: {args.task_id}")
+            task = matches[0]
+            print("1" if task["has_subspace_anchor_override"] else "0")
+            if task["has_subspace_anchor_override"]:
+                print(len(task["subspace_anchor_concepts"]))
+                for anchor in task["subspace_anchor_concepts"]:
+                    print(anchor)
         elif args.command == "counts":
             print(json.dumps(expected_image_counts(config), sort_keys=True))
         else:

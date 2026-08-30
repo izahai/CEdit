@@ -45,6 +45,7 @@ GLOBAL_PAIRWISE_ANCHOR_MODES = {
     'mean_norm_target_global_pairwise_residual_subspace',
     'retain_aware_target_global_pairwise_residual_subspace',
 }
+DEFAULT_SUBSPACE_ANCHOR_CONCEPTS = ("", "person")
 
 
 def build_argument_parser():
@@ -79,6 +80,16 @@ def build_argument_parser():
         help=(
             'CSV containing the concept column used by '
             'global_pairwise_residual_subspace'
+        ),
+    )
+    parser.add_argument(
+        '--subspace_anchor_concepts',
+        nargs='*',
+        default=None,
+        help=(
+            'Replacement extra anchors for global residual-subspace modes. '
+            'Omit to use the default empty prompt and person; provide the flag '
+            'with no values to use target-pair residuals only.'
         ),
     )
     parser.add_argument('--heads', type=str, default=None)
@@ -170,6 +181,25 @@ def normalize_concepts(value, name, allow_empty=False):
     if not concepts or (not allow_empty and any(not concept for concept in concepts)):
         raise ValueError(f'{name} must contain at least one non-empty concept')
     return concepts
+
+
+def normalize_subspace_anchor_concepts(value):
+    """Normalize an optional replacement list while preserving empty anchors."""
+    if value is None:
+        return list(DEFAULT_SUBSPACE_ANCHOR_CONCEPTS)
+    if isinstance(value, str):
+        concepts = value.split(',')
+    elif isinstance(value, list):
+        concepts = value
+    else:
+        raise ValueError(
+            'subspace_anchor_concepts must be a list or comma-separated string'
+        )
+    if not all(isinstance(concept, str) for concept in concepts):
+        raise ValueError(
+            'Every item in subspace_anchor_concepts must be a string'
+        )
+    return [concept.strip() for concept in concepts]
 
 
 def load_subspace_concepts(path):
@@ -510,6 +540,7 @@ def edit_model(
     emb_size=768,
     device="cuda",
     subspace_concepts=None,
+    subspace_anchor_concepts=None,
 ):
 
     I = torch.eye(emb_size, device=device)
@@ -559,12 +590,23 @@ def edit_model(
                 device=device,
                 chunk_size=chunk_size,
             )
-        subspace_anchor_embeddings = encode_last_subject_embeddings(
-            pipeline,
-            ['', 'person'],
-            device=device,
-            chunk_size=chunk_size,
+        resolved_subspace_anchors = (
+            list(DEFAULT_SUBSPACE_ANCHOR_CONCEPTS)
+            if subspace_anchor_concepts is None
+            else list(subspace_anchor_concepts)
         )
+        if resolved_subspace_anchors:
+            subspace_anchor_embeddings = encode_last_subject_embeddings(
+                pipeline,
+                resolved_subspace_anchors,
+                device=device,
+                chunk_size=chunk_size,
+            )
+        else:
+            reference_embedding = target_embeddings[0]
+            subspace_anchor_embeddings = reference_embedding.new_empty(
+                (0,) + tuple(reference_embedding.shape)
+            )
     statistics_anchor_mode = anchor_mode
     if anchor_mode == "retain_aware_target_global_pairwise_residual_subspace":
         # P_retain is layer-specific and is not available until the retain
@@ -614,7 +656,8 @@ def edit_model(
             f"{source!r} | "
             f"{concept_label}={concept_count} | "
             f"extra anchors="
-            f"{anchor_diagnostics['global_subspace_extra_anchor_count']} | "
+            f"{anchor_diagnostics['global_subspace_extra_anchor_count']} "
+            f"{resolved_subspace_anchors!r} | "
             f"residual matrix={residual_shape}"
         )
         if anchor_mode == "mean_norm_target_global_pairwise_residual_subspace":
@@ -877,6 +920,9 @@ if __name__ == '__main__':
             'anchor_concepts',
             allow_empty=True,
         )
+        subspace_anchor_concepts = normalize_subspace_anchor_concepts(
+            args.subspace_anchor_concepts
+        )
     except ValueError as error:
         parser.error(str(error))
     if not np.isfinite(args.residual_scale):
@@ -885,6 +931,15 @@ if __name__ == '__main__':
         parser.error('--residual_rank must be a positive integer')
     if args.residual_top_k <= 0:
         parser.error('--residual_top_k must be a positive integer')
+    if (
+        args.anchor_mode in GLOBAL_PAIRWISE_ANCHOR_MODES
+        and args.anchor_mode != 'global_pairwise_residual_subspace'
+        and len(target_concepts) - 1 + len(subspace_anchor_concepts) == 0
+    ):
+        parser.error(
+            'The residual subspace has no vectors; configure at least two '
+            'target concepts or one --subspace_anchor_concepts value'
+        )
     device = torch.device("cuda")
     seed_everything(args.seed)
 
@@ -972,6 +1027,11 @@ if __name__ == '__main__':
             )
         except (OSError, ValueError) as error:
             parser.error(str(error))
+        if len(subspace_concepts) - 1 + len(subspace_anchor_concepts) == 0:
+            parser.error(
+                'The residual subspace has no vectors; configure at least two '
+                'subspace concepts or one --subspace_anchor_concepts value'
+            )
 
     pipeline = StableDiffusionPipeline.from_pretrained(args.sd_ckpt).to(device)
 
@@ -984,6 +1044,7 @@ if __name__ == '__main__':
         baseline=args.baseline, 
         device=device, 
         subspace_concepts=subspace_concepts,
+        subspace_anchor_concepts=subspace_anchor_concepts,
     )
 
     save_path = args.save_path or "logs/checkpoints"

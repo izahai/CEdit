@@ -30,6 +30,22 @@ for method in "${EDITED_METHODS[@]}"; do
         )
         if [[ "${method}" == "target_global_pairwise_residual_subspace" ]]; then
             train_args+=(--residual_rank "${applied_rank}")
+            subspace_anchor_rows=()
+            while IFS= read -r anchor_row; do
+                subspace_anchor_rows+=("${anchor_row}")
+            done < <(
+                "${PYTHON_BIN}" "${WORKFLOW_CONFIG_LOADER}" \
+                    --config "${WORKFLOW_CONFIG}" \
+                    --task-id "${task_id}" \
+                    task-anchors
+            )
+            if [[ "${subspace_anchor_rows[0]}" == "1" ]]; then
+                train_args+=(--subspace_anchor_concepts)
+                anchor_count="${subspace_anchor_rows[1]:-0}"
+                for ((anchor_index = 0; anchor_index < anchor_count; anchor_index++)); do
+                    train_args+=("${subspace_anchor_rows[anchor_index + 2]}")
+                done
+            fi
         fi
 
         printf 'Training %s/%s: targets=[%s], anchor=[%s], rank=%s\n' \

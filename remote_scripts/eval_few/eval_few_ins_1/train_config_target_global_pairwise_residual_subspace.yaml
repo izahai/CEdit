@@ -5,6 +5,17 @@ seed: 0
 anchor_mode: target_global_pairwise_residual_subspace
 residual_rank: 30
 residual_scale: 1.0
+subspace_anchor_concepts:
+  - Cheerful Cartoon Mouse
+  - Playful Cartoon Dog
+  - Goofy Sea Creature
+  - Cute Electric Fantasy Creature
+  - Minimalist Cute Cat
+  - Friendly Woodland Mascot
+  - Retro Animal Cartoon
+  - Kawaii Fantasy Mascot
+  - Funny Everyday Hero
+  - Universal Cute Mascot
 
 baseline: SPEED
 params: V
@@ -14,5 +25,5 @@ retain_scale: 1.0
 lamb: 0.0
 disable_filter: false
 
-heads: concept
+heads: concept  
 file_name: weight

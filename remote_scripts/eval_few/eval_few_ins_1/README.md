@@ -1,6 +1,6 @@
-# Vast AI: Few-Concept Legacy vs. TGPRS
+# Vast AI: Few-Concept Instance Legacy vs. TGPRS
 
-This self-contained workflow reproduces the instance/style pipeline in
+This self-contained workflow reproduces the instance portion of
 `scripts/eval_few.sh` and compares three model states:
 
 - original Stable Diffusion v1.4;
@@ -12,20 +12,34 @@ metric row records the effective training configuration.
 
 ## Evaluation matrix
 
-The instance checkpoints erase `Snoopy`, `Snoopy + Mickey`, and
-`Snoopy + Mickey + Spongebob` into the null prompt. The style checkpoints erase
-Van Gogh, Picasso, and Monet separately into `art`. Every checkpoint is sampled
-on all five contents configured for its domain and on the first 1,000 MS-COCO
-prompts.
+The checkpoints erase `Snoopy`, `Snoopy + Mickey`, and
+`Snoopy + Mickey + Spongebob` into the null prompt. Every checkpoint is sampled
+on all five configured instance contents and on the first 1,000 MS-COCO prompts.
 
-TGPRS keeps nominal rank 30 but uses the full feasible target-global span for
-these small tasks: rank 2, 3, or 4 for one, two, or three targets. Sampling uses
+The current TGPRS training config supplies ten extra subspace anchors. TGPRS
+keeps nominal rank 30 but uses the full feasible target-global span for these
+tasks: rank 10, 11, or 12 for one, two, or three targets. Sampling uses
 seed 0, DPM-Solver, 20 denoising steps, CFG 7.5, and the same latent sequence for
 original and edited images.
 
-The full workflow trains 12 edited checkpoints and produces 51,500 PNG files.
+An individual task can replace the TGPRS subspace-anchor list without changing
+other tasks:
+
+```yaml
+tasks:
+  - id: snoopy
+    erase_type: instance
+    target_concepts: [Snoopy]
+    anchor_concept: ""
+    subspace_anchor_concepts: ["", "person"]
+```
+
+Use `subspace_anchor_concepts: []` for target-pair residuals only. That requires
+at least two targets; a one-target task with no subspace anchors is invalid.
+
+The full workflow trains 6 edited checkpoints and produces 35,000 PNG files.
 Use an instance with at least 100 GB of disk. The included smoke configuration
-produces four edited checkpoints and 170 PNG files. The full profile reports
+produces two edited checkpoints and 90 PNG files. The full profile reports
 standard FID-2048; the smoke profile uses the 64-dimensional Inception feature
 layer so its tiny 10-image comparisons finish quickly on a low-vCPU server.
 
@@ -52,24 +66,24 @@ workflow there:
 ```bash
 ssh -p "${VAST_PORT}" -L 8080:localhost:8080 "root@${VAST_HOST}"
 cd /workspace/CEdit
-export WORKFLOW_CONFIG=/workspace/CEdit/remote_scripts/eval_few/eval_few_ins_style_1/workflow_smoke.yaml
-bash remote_scripts/eval_few/eval_few_ins_style_1/run_all.sh
+export WORKFLOW_CONFIG=/workspace/CEdit/remote_scripts/eval_few/eval_few_ins_1/workflow_smoke.yaml
+bash remote_scripts/eval_few/eval_few_ins_1/run_all.sh
 ```
 
 On a suitably sized instance, omit `WORKFLOW_CONFIG` to run the full workflow:
 
 ```bash
 cd /workspace/CEdit
-bash remote_scripts/eval_few/eval_few_ins_style_1/run_all.sh
+bash remote_scripts/eval_few/eval_few_ins_1/run_all.sh
 ```
 
 The workflow is resumable. Force individual work when necessary:
 
 ```bash
-FORCE_RETRAIN=1 bash remote_scripts/eval_few/eval_few_ins_style_1/03_train.sh
-FORCE_RESAMPLE=1 bash remote_scripts/eval_few/eval_few_ins_style_1/04_generate_edits.sh
-FORCE_RESAMPLE=1 bash remote_scripts/eval_few/eval_few_ins_style_1/05_generate_mscoco.sh
-FORCE_EVAL=1 bash remote_scripts/eval_few/eval_few_ins_style_1/06_evaluate.sh
+FORCE_RETRAIN=1 bash remote_scripts/eval_few/eval_few_ins_1/03_train.sh
+FORCE_RESAMPLE=1 bash remote_scripts/eval_few/eval_few_ins_1/04_generate_edits.sh
+FORCE_RESAMPLE=1 bash remote_scripts/eval_few/eval_few_ins_1/05_generate_mscoco.sh
+FORCE_EVAL=1 bash remote_scripts/eval_few/eval_few_ins_1/06_evaluate.sh
 ```
 
 `WORKFLOW_CONFIG`, `OUTPUT_ROOT`, `PYTHON_BIN`, `GPU_ID`, `FID_FEATURE_LAYER`,
@@ -78,8 +92,8 @@ editing YAML.
 
 ## Outputs
 
-The default output root is `/workspace/cedit_eval_few/`; the smoke root is
-`/workspace/cedit_eval_few_smoke/`:
+The default output root is `/workspace/cedit_eval_few_ins_1/`; the smoke root is
+`/workspace/cedit_eval_few_ins_1_smoke/`:
 
 ```text
 <output_root>/
@@ -96,7 +110,8 @@ The default output root is `/workspace/cedit_eval_few/`; the smoke root is
     └── fid_cache/*.pt
 ```
 
-`detailed_metrics.csv` contains per-content CLIP score and FID. `summary.csv`
+`detailed_metrics.csv` contains per-content CLIP score and FID. It also records
+the resolved subspace-anchor list and count. `summary.csv`
 reports mean target CLIP score, mean non-target FID, and MS-COCO CLIP/FID for
 each task and model. `comparison.csv` places legacy and TGPRS side by side;
 every `*_improvement` column is oriented so a positive value favors TGPRS.

@@ -42,6 +42,8 @@ DETAILED_FIELDS = [
     "model",
     "anchor_mode",
     "anchor_concepts",
+    "subspace_anchor_concepts",
+    "subspace_anchor_count",
     "configured_residual_rank",
     "applied_residual_rank",
     "target_global_residual_count",
@@ -67,6 +69,8 @@ SUMMARY_FIELDS = [
     "model",
     "anchor_mode",
     "anchor_concepts",
+    "subspace_anchor_concepts",
+    "subspace_anchor_count",
     "configured_residual_rank",
     "applied_residual_rank",
     "target_global_residual_count",
@@ -96,6 +100,8 @@ COMPARISON_FIELDS = [
     "tgprs_aug_num",
     "tgprs_configured_residual_rank",
     "tgprs_applied_residual_rank",
+    "tgprs_subspace_anchor_concepts",
+    "tgprs_subspace_anchor_count",
     "original_target_clip_score",
     "legacy_target_clip_score",
     "tgprs_target_clip_score",
@@ -259,6 +265,8 @@ def training_metadata(method, task, train_configs):
         return {
             "anchor_mode": "",
             "anchor_concepts": "",
+            "subspace_anchor_concepts": "",
+            "subspace_anchor_count": "",
             "configured_residual_rank": "",
             "applied_residual_rank": "",
             "target_global_residual_count": "",
@@ -272,6 +280,13 @@ def training_metadata(method, task, train_configs):
     return {
         "anchor_mode": config["anchor_mode"],
         "anchor_concepts": task["anchor_concept"],
+        "subspace_anchor_concepts": (
+            json.dumps(task["subspace_anchor_concepts"], ensure_ascii=False)
+            if is_tgprs else ""
+        ),
+        "subspace_anchor_count": (
+            task["subspace_anchor_count"] if is_tgprs else ""
+        ),
         "configured_residual_rank": (
             task["configured_residual_rank"] if is_tgprs else ""
         ),
@@ -415,6 +430,10 @@ def summarize_detailed_rows(rows, tasks, methods):
                 "model": method,
                 "anchor_mode": first["anchor_mode"],
                 "anchor_concepts": first["anchor_concepts"],
+                "subspace_anchor_concepts": first[
+                    "subspace_anchor_concepts"
+                ],
+                "subspace_anchor_count": first["subspace_anchor_count"],
                 "configured_residual_rank": first["configured_residual_rank"],
                 "applied_residual_rank": first["applied_residual_rank"],
                 "target_global_residual_count": first[
@@ -469,6 +488,10 @@ def build_comparison_rows(summary_rows, tasks):
                 "configured_residual_rank"
             ],
             "tgprs_applied_residual_rank": tgprs["applied_residual_rank"],
+            "tgprs_subspace_anchor_concepts": tgprs[
+                "subspace_anchor_concepts"
+            ],
+            "tgprs_subspace_anchor_count": tgprs["subspace_anchor_count"],
             "original_target_clip_score": original["target_clip_score_mean"],
             "legacy_target_clip_score": legacy["target_clip_score_mean"],
             "tgprs_target_clip_score": tgprs["target_clip_score_mean"],

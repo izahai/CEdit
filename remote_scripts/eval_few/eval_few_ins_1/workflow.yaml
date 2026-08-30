@@ -1,4 +1,4 @@
-# Full instance/style comparison derived from scripts/eval_few.sh.
+# Full instance comparison derived from scripts/eval_few.sh.
 runtime:
   python_bin: /venv/main/bin/python
   gpu_id: 0
@@ -32,14 +32,6 @@ domains:
       - Spongebob
       - Pikachu
       - Hello Kitty
-  style:
-    contents:
-      - Van Gogh
-      - Picasso
-      - Monet
-      - Paul Gauguin
-      - Caravaggio
-
 tasks:
   - id: snoopy
     erase_type: instance
@@ -59,21 +51,5 @@ tasks:
       - Mickey
       - Spongebob
     anchor_concept: ""
-  - id: van_gogh
-    erase_type: style
-    target_concepts:
-      - Van Gogh
-    anchor_concept: art
-  - id: picasso
-    erase_type: style
-    target_concepts:
-      - Picasso
-    anchor_concept: art
-  - id: monet
-    erase_type: style
-    target_concepts:
-      - Monet
-    anchor_concept: art
-
 paths:
-  output_root: ${WORKSPACE_DIR}/cedit_eval_few
+  output_root: ${WORKSPACE_DIR}/cedit_eval_few_ins_1

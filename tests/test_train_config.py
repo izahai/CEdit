@@ -22,10 +22,50 @@ def _install_optional_dependency_stubs():
 
 _install_optional_dependency_stubs()
 
-from train_erase_null import load_subspace_concepts, normalize_concepts, parse_args
+from train_erase_null import (
+    DEFAULT_SUBSPACE_ANCHOR_CONCEPTS,
+    load_subspace_concepts,
+    normalize_concepts,
+    normalize_subspace_anchor_concepts,
+    parse_args,
+)
 
 
 class TrainConfigTests(unittest.TestCase):
+    def test_subspace_anchor_override_defaults_and_cli_values(self):
+        _, default_args = parse_args([])
+        _, custom_args = parse_args([
+            "--subspace_anchor_concepts",
+            "",
+            "art",
+        ])
+        _, empty_args = parse_args(["--subspace_anchor_concepts"])
+
+        self.assertIsNone(default_args.subspace_anchor_concepts)
+        self.assertEqual(
+            normalize_subspace_anchor_concepts(
+                default_args.subspace_anchor_concepts
+            ),
+            list(DEFAULT_SUBSPACE_ANCHOR_CONCEPTS),
+        )
+        self.assertEqual(custom_args.subspace_anchor_concepts, ["", "art"])
+        self.assertEqual(empty_args.subspace_anchor_concepts, [])
+
+    def test_subspace_anchor_override_loads_from_yaml(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "train.yaml"
+            config_path.write_text(
+                "subspace_anchor_concepts: ['', art, painting]\n",
+                encoding="utf-8",
+            )
+
+            _, args = parse_args(["--config", str(config_path)])
+
+        self.assertEqual(
+            normalize_subspace_anchor_concepts(args.subspace_anchor_concepts),
+            ["", "art", "painting"],
+        )
+
     def test_mean_norm_target_global_mode_does_not_require_subspace_csv(self):
         _, args = parse_args(
             [

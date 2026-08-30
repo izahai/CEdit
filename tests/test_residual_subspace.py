@@ -46,6 +46,26 @@ class GlobalPairwiseResidualSubspaceTests(unittest.TestCase):
         self.assertEqual(residuals.shape, (3 * (3 + 1), 2))
         torch.testing.assert_close(residuals, expected)
 
+    def test_builds_target_pair_residuals_without_extra_anchors(self):
+        concepts = torch.tensor([[[1.0, 0.0]], [[0.0, 2.0]]])
+        extra_anchors = torch.empty(0, 1, 2)
+
+        residuals = build_global_pairwise_residual_matrix(
+            concepts,
+            extra_anchors,
+        )
+
+        expected = torch.tensor([[-1.0, 2.0], [1.0, -2.0]])
+        self.assertEqual(residuals.shape, (2, 2))
+        torch.testing.assert_close(residuals, expected)
+
+    def test_rejects_one_concept_without_extra_anchors(self):
+        concepts = torch.tensor([[[1.0, 0.0]]])
+        extra_anchors = torch.empty(0, 1, 2)
+
+        with self.assertRaisesRegex(ValueError, "no vectors"):
+            build_global_pairwise_residual_matrix(concepts, extra_anchors)
+
     def test_normalizes_every_global_residual_before_exact_svd(self):
         concepts = torch.tensor([[[1.0, 0.0]], [[0.0, 2.0]]])
         extra_anchors = torch.tensor([[[4.0, 0.0]], [[0.0, 8.0]]])
@@ -310,6 +330,27 @@ class TargetGlobalPairwiseResidualSubspaceTests(unittest.TestCase):
         )
         self.assertEqual(diagnostics["subspace_magnitude_mode"], "source_mean")
         self.assertLess(diagnostics["subspace_max_norm_error"], 1e-6)
+
+    def test_mean_norm_mode_supports_target_only_pairwise_residuals(self):
+        targets = torch.tensor([[[1.0, 1.0]], [[4.0, 1.0]]])
+        legacy_anchors = targets + 1.0
+        extra_anchors = torch.empty(0, 1, 2)
+
+        residuals, diagnostics = (
+            build_mean_norm_target_global_pairwise_residual_subspace_residuals(
+                targets,
+                legacy_anchors,
+                extra_anchor_embeddings=extra_anchors,
+                rank=1,
+            )
+        )
+
+        torch.testing.assert_close(
+            residuals.norm(dim=2),
+            torch.tensor([[3.0], [3.0]]),
+        )
+        self.assertEqual(diagnostics["global_subspace_extra_anchor_count"], 0)
+        self.assertEqual(diagnostics["global_subspace_residual_count"], 2)
 
 
 class SmallestCosineSubspaceResidualTests(unittest.TestCase):

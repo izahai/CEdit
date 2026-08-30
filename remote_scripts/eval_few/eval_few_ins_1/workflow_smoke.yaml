@@ -1,4 +1,4 @@
-# Small end-to-end validation of null- and art-anchor tasks.
+# Small end-to-end validation of an instance null-anchor task.
 runtime:
   python_bin: /venv/main/bin/python
   gpu_id: 0
@@ -31,24 +31,11 @@ domains:
       - Pikachu
     prompt_templates:
       - a photo of a {}.
-  style:
-    contents:
-      - Van Gogh
-      - Picasso
-    prompt_templates:
-      - '{} style painting of the night sky with bold strokes.'
-
 tasks:
   - id: snoopy
     erase_type: instance
     target_concepts:
       - Snoopy
     anchor_concept: ""
-  - id: van_gogh
-    erase_type: style
-    target_concepts:
-      - Van Gogh
-    anchor_concept: art
-
 paths:
-  output_root: ${WORKSPACE_DIR}/cedit_eval_few_smoke
+  output_root: ${WORKSPACE_DIR}/cedit_eval_few_ins_1_smoke

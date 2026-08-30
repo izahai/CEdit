@@ -38,11 +38,6 @@ def build_global_pairwise_residual_matrix(
         )
     if concept_embeddings.shape[0] == 0:
         raise ValueError("At least one concept embedding is required")
-    if extra_anchor_embeddings.shape[0] != 2:
-        raise ValueError(
-            "Exactly two extra-anchor embeddings are required: empty prompt and "
-            "person"
-        )
     if concept_embeddings.shape[1:] != extra_anchor_embeddings.shape[1:]:
         raise ValueError(
             "Concept and extra-anchor embedding shapes must match, got "
@@ -53,7 +48,17 @@ def build_global_pairwise_residual_matrix(
     flattened_concepts = concept_embeddings.reshape(
         concept_embeddings.shape[0], -1
     ).float()
-    flattened_anchors = extra_anchor_embeddings.reshape(2, -1).float()
+    anchor_count = extra_anchor_embeddings.shape[0]
+    residuals_per_source = concept_embeddings.shape[0] - 1 + anchor_count
+    if residuals_per_source == 0:
+        raise ValueError(
+            "The residual subspace has no vectors: configure at least two "
+            "concepts or one extra anchor"
+        )
+    flattened_anchors = extra_anchor_embeddings.reshape(
+        anchor_count,
+        flattened_concepts.shape[1],
+    ).float()
     residual_blocks = []
     for concept_index, source_embedding in enumerate(flattened_concepts):
         other_concepts = torch.cat(
@@ -424,7 +429,11 @@ def build_global_pairwise_residual_subspace_residuals(
     legacy_norms = torch.linalg.vector_norm(flattened_legacy, dim=1)
     source_mean_norms = None
     if magnitude_mode == "source_mean":
-        residuals_per_source = concept_embeddings.shape[0] + 1
+        residuals_per_source = (
+            concept_embeddings.shape[0]
+            - 1
+            + extra_anchor_embeddings.shape[0]
+        )
         source_residual_norms = torch.linalg.vector_norm(
             global_residuals.reshape(
                 pair_count,
