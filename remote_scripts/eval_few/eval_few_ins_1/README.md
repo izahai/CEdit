@@ -48,17 +48,26 @@ layer so its tiny 10-image comparisons finish quickly on a low-vCPU server.
 From the local repository:
 
 ```bash
-export VAST_HOST='182.224.239.168'
-export VAST_PORT='52197'
+export VAST_HOST='180.189.55.43'
+export VAST_PORT='30824'
 
 rsync -az --progress \
   --exclude='.git/' \
   --exclude='logs/' \
+  --exclude='images/' \
+  --exclude='mscoco/' \
+  --exclude='*.png' \
+  --exclude='*.jpg' \
+  --exclude='*.jpeg' \
+  --exclude='*.webp' \
   --exclude='__pycache__/' \
   --exclude='*.pyc' \
   -e "ssh -p ${VAST_PORT}" \
   ./ "root@${VAST_HOST}:/workspace/CEdit/"
 ```
+
+Generated image directories and common raster image files are excluded from
+the upload.
 
 The supplied server has only 32 GB of non-persistent disk, so run the smoke
 workflow there:
