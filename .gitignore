@@ -3,3 +3,5 @@ __pycache__/
 __pycache__/train_erase_null.cpython-314.pyc
 /images_res
 /celebrity_portrait_versions_50_steps
+/exp_results/small_few_ins/samples_26908
+/exp_results/few_ins/samples_26908

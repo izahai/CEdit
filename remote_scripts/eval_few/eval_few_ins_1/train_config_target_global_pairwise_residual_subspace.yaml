@@ -112,7 +112,7 @@ baseline: SPEED
 params: V
 aug_num: 0
 threshold: 0.3
-retain_scale: 1.0
+retain_scale: 0.5
 lamb: 0.0
 disable_filter: false
 

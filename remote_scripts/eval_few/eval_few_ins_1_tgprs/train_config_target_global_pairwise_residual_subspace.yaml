@@ -4,7 +4,7 @@ seed: 0
 
 anchor_mode: target_global_pairwise_residual_subspace
 residual_rank: 30
-residual_scale: 1.0
+residual_scale: 0.5
 subspace_anchor_concepts:
   - ""
   - Cheerful Cartoon Mouse
@@ -111,7 +111,7 @@ subspace_anchor_concepts:
 baseline: SPEED
 params: V
 aug_num: 0
-threshold: 0.2
+threshold: 0.3
 retain_scale: 1.0
 lamb: 0.0
 disable_filter: false

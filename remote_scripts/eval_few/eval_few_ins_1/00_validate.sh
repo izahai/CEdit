@@ -36,7 +36,7 @@ expected = {
         "anchor_mode": "target_global_pairwise_residual_subspace",
         "params": "V",
         "aug_num": 0,
-        "threshold": 0.034,
+        "threshold": 0.3,
         "retain_scale": 1.0,
         "disable_filter": False,
         "residual_rank": 30,

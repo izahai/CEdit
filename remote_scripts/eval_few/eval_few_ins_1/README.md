@@ -50,7 +50,7 @@ From the local repository:
 
 ```bash
 export VAST_HOST='180.189.55.43'
-export VAST_PORT='25510'
+export VAST_PORT='42630'
 
 rsync -az --progress \
   --exclude='.git/' \

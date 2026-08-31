@@ -26,11 +26,11 @@ expected = {
         "anchor_mode": "target_global_pairwise_residual_subspace",
         "params": "V",
         "aug_num": 0,
-        "threshold": 0.2,
+        "threshold": 0.3,
         "retain_scale": 1.0,
         "disable_filter": False,
         "residual_rank": 30,
-        "residual_scale": 1.0,
+        "residual_scale": 0.5,
     },
 }
 for path, fields in expected.items():
