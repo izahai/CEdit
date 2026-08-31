@@ -2,7 +2,6 @@
 set -Eeuo pipefail
 
 WORKFLOW_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-source "${WORKFLOW_DIR}/common.sh"
 
 STAGES=(
     00_validate.sh

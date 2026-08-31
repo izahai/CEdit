@@ -25,42 +25,6 @@ FIELD_SEPARATOR=$'\x1f'
 
 export REPO_ROOT WORKSPACE_DIR WORKFLOW_CONFIG
 
-TMUX_LOG_PATH="${WORKSPACE_DIR}/tmux-log.log"
-TMUX_LOG_FORMAT="raw-few-ins-v1"
-export TMUX_LOG_PATH
-
-enable_tmux_logging() {
-    if [[ -z "${TMUX:-}" ]]; then
-        printf 'Not inside tmux; pane logging is unavailable. Expected log: %s\n' \
-            "${TMUX_LOG_PATH}" >&2
-        return 0
-    fi
-    if ! command -v tmux >/dev/null 2>&1; then
-        printf 'tmux is unavailable; pane logging cannot be enabled.\n' >&2
-        return 0
-    fi
-
-    local pane_id pane_log_format log_command
-    pane_id="${TMUX_PANE:-$(tmux display-message -p '#{pane_id}')}"
-    pane_log_format="$(
-        tmux show-options -pqv -t "${pane_id}" @cedit_tmux_log_format \
-            2>/dev/null || true
-    )"
-    if [[ "${pane_log_format}" == "${TMUX_LOG_FORMAT}" ]]; then
-        printf 'tmux pane logging is already active: %s\n' "${TMUX_LOG_PATH}"
-        return 0
-    fi
-
-    mkdir -p "$(dirname -- "${TMUX_LOG_PATH}")"
-    printf -v log_command 'cat >> %q' "${TMUX_LOG_PATH}"
-    tmux pipe-pane -t "${pane_id}" "${log_command}"
-    tmux set-option -p -t "${pane_id}" \
-        @cedit_tmux_log_format "${TMUX_LOG_FORMAT}"
-    printf 'tmux pane logging enabled: %s\n' "${TMUX_LOG_PATH}"
-}
-
-enable_tmux_logging
-
 load_workflow_config() {
     if ! "${BOOTSTRAP_PYTHON}" -c 'import yaml' >/dev/null 2>&1; then
         "${BOOTSTRAP_PYTHON}" -m pip install PyYAML
@@ -145,9 +109,6 @@ assert_png_count() {
 
 train_config_for_method() {
     case "$1" in
-        legacy)
-            printf '%s/train_config_legacy.yaml' "${WORKFLOW_DIR}"
-            ;;
         target_global_pairwise_residual_subspace)
             printf '%s/train_config_target_global_pairwise_residual_subspace.yaml' \
                 "${WORKFLOW_DIR}"

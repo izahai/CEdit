@@ -1,25 +1,24 @@
-# Vast AI: Few-Concept Instance Legacy vs. TGPRS
+# Vast AI: Few-Concept Instance TGPRS
 
 This self-contained workflow reproduces the instance portion of
-`scripts/eval_few.sh` and compares three model states:
+`scripts/eval_few.sh` and evaluates two model states:
 
 - original Stable Diffusion v1.4;
-- legacy SPEED with `aug_num=10`; and
 - `target_global_pairwise_residual_subspace` (TGPRS) with `aug_num=0`.
 
-The edited comparison intentionally retains that augmentation confound. Every
-metric row records the effective training configuration.
+Original images are retained only as the reference distribution. No Legacy or
+SPEED checkpoint is trained, sampled, or evaluated by this workflow.
 
 ## Evaluation matrix
 
 The checkpoints erase `Snoopy`, `Snoopy + Mickey`, and
 `Snoopy + Mickey + Spongebob` into the null prompt. Every checkpoint is sampled
-on all five configured instance contents and on the first 1,000 MS-COCO prompts.
+on all five configured instance contents and on the first 100 MS-COCO prompts.
 
-The current TGPRS training config supplies eleven extra subspace anchors,
-including the null prompt. TGPRS keeps nominal rank 30 but uses the full
-feasible target-global span for these tasks: rank 11, 12, or 13 for one, two,
-or three targets. Sampling uses
+The current TGPRS training config supplies 101 extra subspace anchors,
+including the null prompt: 100 generic style-like prompts plus `""`. TGPRS
+uses the configured nominal rank 30 for these tasks, subject to the measured
+effective rank of the target-global span. Sampling uses
 seed 0, DPM-Solver, 20 denoising steps, CFG 7.5, and the same latent sequence for
 original and edited images.
 
@@ -38,9 +37,9 @@ tasks:
 Use `subspace_anchor_concepts: []` for target-pair residuals only. That requires
 at least two targets; a one-target task with no subspace anchors is invalid.
 
-The full workflow trains 6 edited checkpoints and produces 35,000 PNG files.
+The full workflow trains 3 edited checkpoints and produces 2,000 PNG files.
 Use an instance with at least 100 GB of disk. The included smoke configuration
-produces two edited checkpoints and 90 PNG files. The full profile reports
+produces one edited checkpoint and 60 PNG files. The full profile reports
 standard FID-2048; the smoke profile uses the 64-dimensional Inception feature
 layer so its tiny 10-image comparisons finish quickly on a low-vCPU server.
 
@@ -50,7 +49,7 @@ From the local repository:
 
 ```bash
 export VAST_HOST='180.189.55.43'
-export VAST_PORT='25510'
+export VAST_PORT='52678'
 
 rsync -az --progress \
   --exclude='.git/' \
@@ -76,54 +75,38 @@ workflow there:
 ```bash
 ssh -p "${VAST_PORT}" -L 8080:localhost:8080 "root@${VAST_HOST}"
 cd /workspace/CEdit
-export WORKFLOW_CONFIG=/workspace/CEdit/remote_scripts/eval_few/eval_few_ins_1/workflow_smoke.yaml
-bash remote_scripts/eval_few/eval_few_ins_1/run_all.sh
+export WORKFLOW_CONFIG=/workspace/CEdit/remote_scripts/eval_few/eval_few_ins_1_tgprs/workflow_smoke.yaml
+bash remote_scripts/eval_few/eval_few_ins_1_tgprs/run_all.sh
 ```
 
 On a suitably sized instance, omit `WORKFLOW_CONFIG` to run the full workflow:
 
 ```bash
 cd /workspace/CEdit
-bash remote_scripts/eval_few/eval_few_ins_1/run_all.sh
+bash remote_scripts/eval_few/eval_few_ins_1_tgprs/run_all.sh
 ```
 
 The workflow is resumable. Force individual work when necessary:
 
 ```bash
-FORCE_RETRAIN=1 bash remote_scripts/eval_few/eval_few_ins_1/03_train.sh
-FORCE_RESAMPLE=1 bash remote_scripts/eval_few/eval_few_ins_1/04_generate_edits.sh
-FORCE_RESAMPLE=1 bash remote_scripts/eval_few/eval_few_ins_1/05_generate_mscoco.sh
-FORCE_EVAL=1 bash remote_scripts/eval_few/eval_few_ins_1/06_evaluate.sh
+FORCE_RETRAIN=1 bash remote_scripts/eval_few/eval_few_ins_1_tgprs/03_train.sh
+FORCE_RESAMPLE=1 bash remote_scripts/eval_few/eval_few_ins_1_tgprs/04_generate_edits.sh
+FORCE_RESAMPLE=1 bash remote_scripts/eval_few/eval_few_ins_1_tgprs/05_generate_mscoco.sh
+FORCE_EVAL=1 bash remote_scripts/eval_few/eval_few_ins_1_tgprs/06_evaluate.sh
 ```
 
 `WORKFLOW_CONFIG`, `OUTPUT_ROOT`, `PYTHON_BIN`, `GPU_ID`, `FID_FEATURE_LAYER`,
 and the sampling or metric batch-size variables can be overridden without
 editing YAML.
 
-When the workflow is launched inside the server's tmux session, it captures the
-complete pane output, including stdout and stderr from every stage, in
-`/workspace/tmux-log.log` (or `${WORKSPACE_DIR}/tmux-log.log` when
-`WORKSPACE_DIR` is overridden). The log is appended to preserve earlier runs.
-If the workflow is not running inside tmux, it continues normally and prints a
-notice that pane logging is unavailable.
-
-Download the log from the local machine with:
-
-```bash
-scp -P "${VAST_PORT}" "root@${VAST_HOST}:/workspace/tmux-log.log" .
-```
-
-Do not run `tail -f /workspace/tmux-log.log` inside the logged tmux pane; that
-would feed the log back into itself.
-
 ## Outputs
 
-The default output root is `/workspace/cedit_eval_few_ins_1/`; the smoke root is
-`/workspace/cedit_eval_few_ins_1_smoke/`:
+The default output root is `/workspace/cedit_eval_few_ins_1_tgprs/`; the smoke
+root is `/workspace/cedit_eval_few_ins_1_tgprs_smoke/`:
 
 ```text
 <output_root>/
-├── checkpoints/{legacy,target_global_pairwise_residual_subspace}/<task>/weight.pt
+├── checkpoints/target_global_pairwise_residual_subspace/<task>/weight.pt
 ├── images/original/<domain>/shared/<content>/original/*.png
 ├── images/<method>/<domain>/<task>/<content>/edit/*.png
 ├── mscoco/original/coco/original/*.png
@@ -137,10 +120,10 @@ The default output root is `/workspace/cedit_eval_few_ins_1/`; the smoke root is
 ```
 
 `detailed_metrics.csv` contains per-content CLIP score and FID. It also records
-the resolved subspace-anchor list and count. `summary.csv`
-reports mean target CLIP score, mean non-target FID, and MS-COCO CLIP/FID for
-each task and model. `comparison.csv` places legacy and TGPRS side by side;
-every `*_improvement` column is oriented so a positive value favors TGPRS.
+the resolved subspace-anchor list and count. `summary.csv` reports mean target
+CLIP score, mean non-target FID, and MS-COCO CLIP/FID for each task and model.
+`comparison.csv` places the original reference and TGPRS side by side without
+requiring Legacy results.
 
 Metric evaluation validates the exact expected filenames. It checkpoints rows
 atomically and caches original-image FID statistics using an image-manifest

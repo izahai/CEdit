@@ -1,0 +1,71 @@
+{
+  "model_id": "CompVis/stable-diffusion-v1-4",
+  "anchor_mode": "target_global_pairwise_residual_subspace",
+  "residual_rank": 30,
+  "residual_scale": 1.0,
+  "subspace_anchor_concepts": [
+    "",
+    "Cheerful Cartoon Mouse",
+    "Playful Cartoon Dog",
+    "Goofy Sea Creature",
+    "Cute Electric Fantasy Creature",
+    "Minimalist Cute Cat",
+    "Friendly Woodland Mascot",
+    "Retro Animal Cartoon",
+    "Kawaii Fantasy Mascot",
+    "Funny Everyday Hero",
+    "Universal Cute Mascot"
+  ],
+  "aug_num": 0,
+  "heads": "concept",
+  "seed": 0,
+  "embedding_dim": 768,
+  "retain_covariance": "chunked mean of (E_chunk.T @ E_chunk)",
+  "threshold_rule": "count(singular_value < threshold)",
+  "thresholds": [
+    0.05,
+    0.046,
+    0.042,
+    0.038,
+    0.034,
+    0.03,
+    0.026,
+    0.022,
+    0.018,
+    0.014,
+    0.01
+  ],
+  "tasks": [
+    {
+      "task_id": "snoopy",
+      "target_concepts": [
+        "Snoopy"
+      ],
+      "retain_prompt_count": 1346
+    },
+    {
+      "task_id": "snoopy_mickey",
+      "target_concepts": [
+        "Snoopy",
+        "Mickey"
+      ],
+      "retain_prompt_count": 1344
+    },
+    {
+      "task_id": "snoopy_mickey_spongebob",
+      "target_concepts": [
+        "Snoopy",
+        "Mickey",
+        "Spongebob"
+      ],
+      "retain_prompt_count": 1343
+    }
+  ],
+  "workflow_sha256": "705d8451a098018c477134b3d05dc87e4a5b04e56f4746ef31f4452a438e1bd6",
+  "train_config_sha256": "96098f4bf7ed840dc0afb348821a87a9d13a7da56329a79021328af957ac3787",
+  "data_sha256": "9cd7a8066944133c599507865f4dddd3375c0aa220bf795a20601b3c99202658",
+  "torch_version": "2.11.0+cu128",
+  "transformers_version": "4.48.0",
+  "device": "NVIDIA GeForce RTX 3080",
+  "elapsed_seconds": 7.274633169174194
+}

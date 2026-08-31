@@ -111,7 +111,7 @@ subspace_anchor_concepts:
 baseline: SPEED
 params: V
 aug_num: 0
-threshold: 0.3
+threshold: 0.2
 retain_scale: 1.0
 lamb: 0.0
 disable_filter: false
