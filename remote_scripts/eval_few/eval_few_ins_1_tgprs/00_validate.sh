@@ -30,7 +30,7 @@ expected = {
         "retain_scale": 1.0,
         "disable_filter": False,
         "residual_rank": 30,
-        "residual_scale": 0.5,
+        "residual_scale": 0.6,
     },
 }
 for path, fields in expected.items():

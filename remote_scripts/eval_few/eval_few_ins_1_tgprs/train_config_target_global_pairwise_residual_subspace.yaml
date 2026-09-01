@@ -4,7 +4,7 @@ seed: 0
 
 anchor_mode: target_global_pairwise_residual_subspace
 residual_rank: 30
-residual_scale: 0.5
+residual_scale: 0.6
 subspace_anchor_concepts:
   - ""
   - Cheerful Cartoon Mouse
@@ -36,77 +36,6 @@ subspace_anchor_concepts:
   - Gentle River Otter
   - Clever City Raccoon
   - Happy Sunflower Sprite
-  - Shy Mushroom Friend
-  - Energetic Jungle Monkey
-  - Kindhearted Cartoon Elephant
-  - Curious Desert Fennec
-  - Bouncy Marshmallow Creature
-  - Dreamy Starry Fox
-  - Helpful Little Robot
-  - Musical Woodland Bird
-  - Peaceful Lavender Dragon
-  - Sunny Beach Crab
-  - Cozy Autumn Hedgehog
-  - Playful Snowy Penguin
-  - Brave Storybook Knight
-  - Gentle Bubble Whale
-  - Radiant Firefly Spirit
-  - Quirky Patchwork Monster
-  - Friendly Prairie Deer
-  - Tiny Garden Gnome
-  - Whimsical Teapot Character
-  - Cheerful Balloon Animal
-  - Curious Coral Reef Creature
-  - Playful Cloud Puppy
-  - Kind Forest Guardian
-  - Colorful Tropical Toucan
-  - Sleepy Pajama Bear
-  - Adventurous River Beaver
-  - Gentle Pastel Unicorn
-  - Funny Tin Toy Robot
-  - Bright Meadow Butterfly
-  - Cozy Winter Squirrel
-  - Heroic Little Badger
-  - Magical Lantern Sprite
-  - Friendly Orchard Goose
-  - Curious Pocket Dragon
-  - Playful Rainy-Day Frog
-  - Soft Woolly Alpaca
-  - Cheerful Woodland Raccoon
-  - Dapper Cartoon Penguin
-  - Mellow Sunset Llama
-  - Spirited Prairie Dog
-  - Tiny Blueberry Goblin
-  - Graceful Garden Swan
-  - Friendly Toy Soldier
-  - Whimsical Clockwork Bird
-  - Happy Picnic Hamster
-  - Brave Coral Seahorse
-  - Cozy Storybook Lamb
-  - Curious Bamboo Panda
-  - Playful Desert Meerkat
-  - Gentle Twilight Moth
-  - Colorful Kite Creature
-  - Sunny Cartoon Chick
-  - Clever Little Inventor
-  - Dreamy Ocean Dolphin
-  - Cheerful Acorn Sprite
-  - Funny Polka-Dot Monster
-  - Kindhearted Snow Fox
-  - Playful Blossom Fairy
-  - Friendly Lighthouse Keeper
-  - Adventurous Sky Captain
-  - Cozy Cinnamon Bear
-  - Curious Pebble Golem
-  - Joyful Raincloud Creature
-  - Gentle Cartoon Retriever
-  - Musical Meadow Mouse
-  - Bright Comet Traveler
-  - Playful Pumpkin Goblin
-  - Friendly Seaside Seal
-  - Whimsical Paper Dragon
-  - Cheerful Gingerbread Character
-  - Calm Mountain Yeti
 
 baseline: SPEED
 params: V
