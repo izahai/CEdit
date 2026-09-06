@@ -1,0 +1,52 @@
+# Full artistic-style comparison derived from scripts/eval_few.sh.
+runtime:
+  python_bin: /venv/main/bin/python
+  gpu_id: 0
+
+experiment:
+  sd_ckpt: CompVis/stable-diffusion-v1-4
+  methods:
+    - original
+    - legacy
+    - target_global_pairwise_residual_subspace
+  edited_methods:
+    - legacy
+    - target_global_pairwise_residual_subspace
+  seed: 0
+  inference_timesteps: 20
+  guidance_scale: 7.5
+  num_samples_per_prompt: 10
+  batch_size: 10
+  mscoco_num_prompts: 1000
+  mscoco_batch_size: 10
+  clip_batch_size: 32
+  fid_batch_size: 32
+  fid_feature_layer: 2048
+  clip_model: openai/clip-vit-large-patch14
+
+domains:
+  style:
+    contents:
+      - Van Gogh
+      - Picasso
+      - Monet
+      - Paul Gauguin
+      - Caravaggio
+tasks:
+  - id: van_gogh
+    erase_type: style
+    target_concepts:
+      - Van Gogh
+    anchor_concept: art
+  - id: picasso
+    erase_type: style
+    target_concepts:
+      - Picasso
+    anchor_concept: art
+  - id: monet
+    erase_type: style
+    target_concepts:
+      - Monet
+    anchor_concept: art
+paths:
+  output_root: ${WORKSPACE_DIR}/cedit_eval_few_style_1

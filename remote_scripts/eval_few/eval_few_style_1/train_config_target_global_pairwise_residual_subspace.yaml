@@ -1,0 +1,50 @@
+# Matches the legacy style setup except for TGPRS and augmentation.
+sd_ckpt: CompVis/stable-diffusion-v1-4
+seed: 0
+
+anchor_mode: target_global_pairwise_residual_subspace
+residual_rank: 30
+residual_scale: 1.0
+# Artist-neutral prompts derived from every style template in src/template.py.
+subspace_anchor_concepts:
+  - art style painting of the night sky with bold strokes.
+  - art style landscape of rolling hills with dramatic brushwork.
+  - Self-portrait in art style, showcasing distinctive color and texture.
+  - art style rural scene with dynamic movement and intensity.
+  - Wheat field under a swirling sky in the style of art.
+  - art style transformation of simple cottages into profound scenes.
+  - art style portrait conveying inner turmoil and vitality.
+  - Seascape in art style capturing tumultuous waves and ocean movement.
+  - art style depiction of light on water with delicate brushstrokes.
+  - Garden scene in art style, emphasizing sunlight and shadow effects.
+  - art style atmospheric haze enveloping the landscape.
+  - Haystacks in art style, capturing light and color changes.
+  - Cathedral facade in art style with shifting light and shadow.
+  - art style vibrant flower garden in full bloom.
+  - art style painting of boats as a study of color and atmosphere.
+  - art style cliffs along the coastline with blended sea and sky.
+  - art style bustling Paris streets with movement and vitality.
+  - Sunrise scene in art style, capturing the beauty of dawn.
+  - art style exploration of fog and mist in the landscape.
+  - Olive trees painted in art style.
+  - Tree painted in art style.
+  - Women working in the garden, in art style.
+  - Wheat field painting by art.
+  - Trees in bloom painted in art style.
+  - art style painting of a tree.
+  - Wheat field in art style.
+  - art style painting of a field with mountains in the background.
+  - Trees in bloom in the style of art.
+  - Rocks in the ocean, in art style.
+  - City painting in art style.
+
+baseline: SPEED
+params: V
+aug_num: 0
+threshold: 0.3
+retain_scale: 0.5
+lamb: 0.0
+disable_filter: false
+
+heads: concept
+file_name: weight
