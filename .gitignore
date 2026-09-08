@@ -7,3 +7,7 @@ __pycache__/train_erase_null.cpython-314.pyc
 /exp_results/few_ins/samples_26908
 /exp_results/few_style/samples_57595
 /exp_results/few_style/style_100r/examine
+/logs
+/exp_results/few_style_0.3_thr/samples_57595
+/exp_results/few_style_0.3_thr/style_100r/examine
+/exp_results/few_style_0.1_thr/style_10r_material/inspect_images

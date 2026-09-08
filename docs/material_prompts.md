@@ -1,0 +1,102 @@
+# Material Prompts
+
+- wood
+- oak wood
+- pine wood
+- bamboo
+- cork
+- paper
+- cardboard
+- parchment
+- canvas
+- cotton fabric
+- linen fabric
+- silk
+- wool
+- felt
+- velvet
+- denim
+- leather
+- suede
+- fur
+- rubber
+- latex
+- plastic
+- acrylic sheet
+- vinyl
+- resin
+- epoxy resin
+- silicone
+- foam
+- sponge
+- glass
+- frosted glass
+- crystal
+- ceramic
+- porcelain
+- terracotta
+- clay
+- plaster
+- concrete
+- cement
+- brick
+- stone
+- marble
+- granite
+- slate
+- sandstone
+- limestone
+- obsidian
+- jade
+- quartz
+- metal
+- steel
+- stainless steel
+- iron
+- cast iron
+- copper
+- brass
+- bronze
+- aluminum
+- titanium
+- zinc
+- tin
+- silver
+- gold
+- chrome
+- nickel
+- metal mesh
+- steel wire
+- chainmail
+- carbon fiber
+- fiberglass
+- graphite
+- charcoal
+- chalk
+- ink
+- oil paint
+- watercolor paint
+- gouache paint
+- acrylic paint
+- enamel paint
+- pigment powder
+- wax
+- beeswax
+- soap
+- salt
+- sugar
+- ice
+- snow
+- sand
+- soil
+- mud
+- moss
+- grass
+- dried leaves
+- tree bark
+- straw
+- hay
+- feathers
+- seashells
+- bone
+- ivory

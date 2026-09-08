@@ -37,10 +37,10 @@ expected = {
         "erase_style": False,
         "params": "V",
         "aug_num": 0,
-        "threshold": 0.3,
+        "threshold": 0.1,
         "retain_scale": 1.0,
         "disable_filter": False,
-        "residual_rank": 1,
+        "residual_rank": 10,
         "residual_scale": 1.0,
     },
 }
