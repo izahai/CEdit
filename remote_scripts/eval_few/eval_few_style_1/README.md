@@ -34,7 +34,7 @@ From the local repository, set the remote host and port:
 
 ```bash
 export VAST_HOST='61.32.91.194'
-export VAST_PORT='17557'
+export VAST_PORT='19003'
 
 rsync -az --progress \
   --exclude='.git/' \

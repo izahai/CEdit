@@ -40,7 +40,7 @@ expected = {
         "threshold": 0.3,
         "retain_scale": 1.0,
         "disable_filter": False,
-        "residual_rank": 5,
+        "residual_rank": 1,
         "residual_scale": 1.0,
     },
 }
