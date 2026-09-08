@@ -15,9 +15,9 @@ experiment:
   seed: 0
   inference_timesteps: 20
   guidance_scale: 7.5
-  num_samples_per_prompt: 10
-  batch_size: 10
-  mscoco_num_prompts: 1000
+  num_samples_per_prompt: 1
+  batch_size: 1
+  mscoco_num_prompts: 100
   mscoco_batch_size: 10
   clip_batch_size: 32
   fid_batch_size: 32

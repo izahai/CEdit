@@ -200,6 +200,7 @@ class EvalFewStyleTgprsWorkflowTests(unittest.TestCase):
 
         self.assertFalse((WORKFLOW_DIR / "train_config_legacy.yaml").exists())
         self.assertEqual(tgprs["anchor_mode"], TGPRS_METHOD)
+        self.assertTrue(tgprs["erase_style"])
         self.assertEqual(tgprs["aug_num"], 0)
         self.assertEqual(tgprs["threshold"], 0.3)
         self.assertEqual(tgprs["retain_scale"], 0.5)

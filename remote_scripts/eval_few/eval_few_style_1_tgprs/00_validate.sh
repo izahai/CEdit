@@ -24,13 +24,14 @@ import yaml
 expected = {
     sys.argv[1]: {
         "anchor_mode": "target_global_pairwise_residual_subspace",
+        "erase_style": True,
         "params": "V",
         "aug_num": 0,
         "threshold": 0.3,
         "retain_scale": 1.0,
         "disable_filter": False,
         "residual_rank": 30,
-        "residual_scale": 0.6,
+        "residual_scale": 1.0,
     },
 }
 for path, fields in expected.items():

@@ -18,10 +18,10 @@ Picasso, Monet, Paul Gauguin, and Caravaggio using all 30 style templates from
 `src/template.py`. It also evaluates preservation on the first 100 MS-COCO
 prompts.
 
-TGPRS uses 30 artist-neutral prompts derived by formatting the style templates
-with `art`. None of the five evaluated artist names occur in the TGPRS
-subspace-anchor list. Its configured and feasible residual rank is 30 for each
-single-target task.
+TGPRS uses 100 artist-neutral prompts spanning media, technique, color,
+composition, and light. None of the five evaluated artist names occur in the
+TGPRS subspace-anchor list. Its configured and feasible residual rank is 100
+for each single-target task.
 
 Sampling uses seed 0, DPM-Solver, 20 denoising steps, CFG 7.5, and the same
 latent sequence for original and edited images. The full profile trains six
@@ -33,8 +33,8 @@ edited checkpoints and produces 90 PNG files.
 From the local repository, set the remote host and port:
 
 ```bash
-export VAST_HOST='180.189.55.43'
-export VAST_PORT='57595'
+export VAST_HOST='61.32.91.194'
+export VAST_PORT='17557'
 
 rsync -az --progress \
   --exclude='.git/' \

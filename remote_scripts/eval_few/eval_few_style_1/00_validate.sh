@@ -34,12 +34,13 @@ expected = {
     },
     sys.argv[2]: {
         "anchor_mode": "target_global_pairwise_residual_subspace",
+        "erase_style": False,
         "params": "V",
         "aug_num": 0,
         "threshold": 0.3,
-        "retain_scale": 0.5,
+        "retain_scale": 1.0,
         "disable_filter": False,
-        "residual_rank": 30,
+        "residual_rank": 5,
         "residual_scale": 1.0,
     },
 }
@@ -51,6 +52,10 @@ for path, fields in expected.items():
             raise SystemExit(
                 f"Expected {key}={value!r} in {path}, found {config.get(key)!r}"
             )
+
+with open(sys.argv[2], encoding="utf-8") as config_file:
+    tgprs_config = yaml.safe_load(config_file)
+anchors = tgprs_config.get("subspace_anchor_concepts", [])
 PY
 
 counts="$("${PYTHON_BIN}" "${WORKFLOW_CONFIG_LOADER}" \

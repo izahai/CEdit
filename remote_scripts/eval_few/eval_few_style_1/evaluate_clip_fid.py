@@ -364,12 +364,25 @@ def fid_score(
     use_cuda,
 ):
     import torch_fidelity
+    from torch_fidelity import metric_fid
 
     # torch-fidelity 0.3 stores trusted local NumPy statistics that PyTorch
     # 2.6+ cannot reopen with its new weights_only=True default.
     variable = "TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD"
     previous = os.environ.get(variable)
     os.environ[variable] = "1"
+    original_statistics_to_metric = metric_fid.fid_statistics_to_metric
+    if use_cuda:
+        def cuda_statistics_to_metric(stat_1, stat_2, verbose):
+            del verbose
+            print("Computing FID covariance term on CUDA.", flush=True)
+            return {
+                metric_fid.KEY_METRIC_FID: frechet_distance_from_statistics(
+                    stat_1, stat_2, "cuda"
+                )
+            }
+
+        metric_fid.fid_statistics_to_metric = cuda_statistics_to_metric
     try:
         metrics = torch_fidelity.calculate_metrics(
             input1=str(edited_dir),
@@ -389,11 +402,56 @@ def fid_score(
             verbose=False,
         )
     finally:
+        metric_fid.fid_statistics_to_metric = original_statistics_to_metric
         if previous is None:
             os.environ.pop(variable, None)
         else:
             os.environ[variable] = previous
     return float(metrics["frechet_inception_distance"])
+
+
+def frechet_distance_from_statistics(stat_1, stat_2, device):
+    """Calculate FID from NumPy statistics with Torch linear algebra."""
+    import torch
+
+    dtype = torch.float64
+    mean_1 = torch.as_tensor(stat_1["mu"], dtype=dtype, device=device)
+    mean_2 = torch.as_tensor(stat_2["mu"], dtype=dtype, device=device)
+    covariance_1 = torch.as_tensor(
+        stat_1["sigma"], dtype=dtype, device=device
+    )
+    covariance_2 = torch.as_tensor(
+        stat_2["sigma"], dtype=dtype, device=device
+    )
+    covariance_1 = 0.5 * (covariance_1 + covariance_1.mT)
+    covariance_2 = 0.5 * (covariance_2 + covariance_2.mT)
+
+    eigenvalues_1, eigenvectors_1 = torch.linalg.eigh(covariance_1)
+    square_roots_1 = eigenvalues_1.clamp_min(0).sqrt()
+    covariance_2_in_basis_1 = (
+        eigenvectors_1.mT @ covariance_2 @ eigenvectors_1
+    )
+    symmetric_product = (
+        square_roots_1[:, None]
+        * covariance_2_in_basis_1
+        * square_roots_1[None, :]
+    )
+    symmetric_product = 0.5 * (
+        symmetric_product + symmetric_product.mT
+    )
+    product_eigenvalues = torch.linalg.eigvalsh(symmetric_product)
+    covariance_mean_trace = product_eigenvalues.clamp_min(0).sqrt().sum()
+
+    mean_difference = mean_1 - mean_2
+    distance = (
+        mean_difference.dot(mean_difference)
+        + torch.trace(covariance_1)
+        + torch.trace(covariance_2)
+        - 2.0 * covariance_mean_trace
+    )
+    if not torch.isfinite(distance):
+        raise ValueError("FID calculation produced a non-finite value")
+    return float(distance.item())
 
 
 def _float(row, key):
@@ -716,4 +774,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

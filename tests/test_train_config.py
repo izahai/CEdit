@@ -28,10 +28,40 @@ from train_erase_null import (
     normalize_concepts,
     normalize_subspace_anchor_concepts,
     parse_args,
+    target_embedding_prompts,
 )
 
 
 class TrainConfigTests(unittest.TestCase):
+    def test_erase_style_defaults_to_false_and_cli_enables_it(self):
+        _, default_args = parse_args([])
+        _, enabled_args = parse_args(["--erase_style"])
+
+        self.assertFalse(default_args.erase_style)
+        self.assertTrue(enabled_args.erase_style)
+
+    def test_erase_style_loads_from_yaml(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "train.yaml"
+            config_path.write_text("erase_style: true\n", encoding="utf-8")
+
+            _, args = parse_args(["--config", str(config_path)])
+
+        self.assertTrue(args.erase_style)
+
+    def test_target_embedding_prompts_only_add_style_when_enabled(self):
+        concepts = ["Van Gogh", "Picasso"]
+
+        self.assertEqual(
+            target_embedding_prompts(concepts),
+            ["Van Gogh", "Picasso"],
+        )
+        self.assertEqual(
+            target_embedding_prompts(concepts, erase_style=True),
+            ["Van Gogh style", "Picasso style"],
+        )
+        self.assertEqual(concepts, ["Van Gogh", "Picasso"])
+
     def test_subspace_anchor_override_defaults_and_cli_values(self):
         _, default_args = parse_args([])
         _, custom_args = parse_args([

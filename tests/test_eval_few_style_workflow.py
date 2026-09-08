@@ -1,10 +1,15 @@
+import sys
+import types
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import yaml
 
+from remote_scripts.eval_few.eval_few_style_1 import evaluate_clip_fid
 from remote_scripts.eval_few.eval_few_style_1.evaluate_clip_fid import (
     build_comparison_rows,
+    fid_score,
     summarize_detailed_rows,
 )
 from remote_scripts.eval_few.eval_few_style_1.workflow_config import (
@@ -13,9 +18,6 @@ from remote_scripts.eval_few.eval_few_style_1.workflow_config import (
     load_config,
     task_specs,
 )
-from src.template import painting_templates
-
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW_DIR = (
     REPO_ROOT / "remote_scripts" / "eval_few" / "eval_few_style_1"
@@ -23,6 +25,78 @@ WORKFLOW_DIR = (
 
 
 class EvalFewStyleWorkflowTests(unittest.TestCase):
+    def test_torch_fid_matches_diagonal_reference(self):
+        stat_1 = {
+            "mu": [0.0, 0.0],
+            "sigma": [[1.0, 0.0], [0.0, 4.0]],
+        }
+        stat_2 = {
+            "mu": [1.0, 2.0],
+            "sigma": [[9.0, 0.0], [0.0, 16.0]],
+        }
+
+        actual = evaluate_clip_fid.frechet_distance_from_statistics(
+            stat_1,
+            stat_2,
+            "cpu",
+        )
+
+        self.assertAlmostEqual(actual, 13.0, places=12)
+
+    def test_cuda_fid_routes_final_statistics_through_torch(self):
+        metric_fid = types.ModuleType("torch_fidelity.metric_fid")
+        metric_fid.KEY_METRIC_FID = "frechet_inception_distance"
+
+        def original_statistics_to_metric(stat_1, stat_2, verbose):
+            del stat_1, stat_2, verbose
+            return {metric_fid.KEY_METRIC_FID: 99.0}
+
+        metric_fid.fid_statistics_to_metric = original_statistics_to_metric
+        torch_fidelity = types.ModuleType("torch_fidelity")
+        torch_fidelity.metric_fid = metric_fid
+
+        stat = {
+            "mu": [0.0, 0.0],
+            "sigma": [[1.0, 0.0], [0.0, 1.0]],
+        }
+
+        def calculate_metrics(**kwargs):
+            self.assertTrue(kwargs["cuda"])
+            return metric_fid.fid_statistics_to_metric(stat, stat, False)
+
+        torch_fidelity.calculate_metrics = calculate_metrics
+        with (
+            mock.patch.dict(
+                sys.modules,
+                {
+                    "torch_fidelity": torch_fidelity,
+                    "torch_fidelity.metric_fid": metric_fid,
+                },
+            ),
+            mock.patch.object(
+                evaluate_clip_fid,
+                "frechet_distance_from_statistics",
+                return_value=12.5,
+                create=True,
+            ) as distance,
+        ):
+            actual = fid_score(
+                "edited",
+                "original",
+                "manifest",
+                "cache",
+                32,
+                "2048",
+                True,
+            )
+
+        self.assertEqual(actual, 12.5)
+        distance.assert_called_once_with(stat, stat, "cuda")
+        self.assertIs(
+            metric_fid.fid_statistics_to_metric,
+            original_statistics_to_metric,
+        )
+
     def test_full_workflow_reproduces_style_matrix(self):
         config = load_config(WORKFLOW_DIR / "workflow.yaml")
         tasks = task_specs(config)
@@ -47,7 +121,7 @@ class EvalFewStyleWorkflowTests(unittest.TestCase):
             ]
             for task in tasks
         ))
-        self.assertTrue(all(task["applied_residual_rank"] == 30 for task in tasks))
+        self.assertTrue(all(task["applied_residual_rank"] == 100 for task in tasks))
         self.assertEqual(expected_image_counts(config), {
             "original_few": 150,
             "edited_few": 900,
@@ -62,7 +136,6 @@ class EvalFewStyleWorkflowTests(unittest.TestCase):
 
     def test_tgprs_anchors_are_all_artist_neutral_style_prompts(self):
         config = load_config(WORKFLOW_DIR / "workflow.yaml")
-        expected_anchors = [template.format("art") for template in painting_templates]
         evaluated_artists = {
             "van gogh",
             "picasso",
@@ -71,11 +144,15 @@ class EvalFewStyleWorkflowTests(unittest.TestCase):
             "caravaggio",
         }
 
-        self.assertEqual(len(expected_anchors), 30)
         for task in task_specs(config):
-            self.assertEqual(task["subspace_anchor_concepts"], expected_anchors)
-            self.assertEqual(task["subspace_anchor_count"], 30)
-            normalized = " ".join(expected_anchors).casefold()
+            anchors = task["subspace_anchor_concepts"]
+            self.assertEqual(len(anchors), 100)
+            self.assertEqual(len(set(anchors)), 100)
+            self.assertTrue(all(anchor.strip() for anchor in anchors))
+            self.assertEqual(task["subspace_anchor_count"], 100)
+            self.assertEqual(task["target_global_residual_count"], 100)
+            self.assertEqual(task["applied_residual_rank"], 100)
+            normalized = " ".join(anchors).casefold()
             self.assertTrue(all(artist not in normalized for artist in evaluated_artists))
 
     def test_smoke_workflow_has_exact_reduced_size(self):
@@ -107,14 +184,16 @@ class EvalFewStyleWorkflowTests(unittest.TestCase):
         self.assertEqual(legacy["aug_num"], 10)
         self.assertEqual(legacy["threshold"], 0.1)
         self.assertEqual(legacy["retain_scale"], 1.0)
+        self.assertNotIn("erase_style", legacy)
         self.assertEqual(
             tgprs["anchor_mode"],
             "target_global_pairwise_residual_subspace",
         )
+        self.assertTrue(tgprs["erase_style"])
         self.assertEqual(tgprs["aug_num"], 0)
         self.assertEqual(tgprs["threshold"], 0.3)
         self.assertEqual(tgprs["retain_scale"], 0.5)
-        self.assertEqual(tgprs["residual_rank"], 30)
+        self.assertEqual(tgprs["residual_rank"], 100)
         self.assertEqual(tgprs["residual_scale"], 1.0)
 
     def test_summary_classifies_single_target_and_four_non_targets(self):

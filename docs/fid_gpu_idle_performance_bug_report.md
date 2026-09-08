@@ -18,8 +18,10 @@ Its evaluator was changed to calculate the FID covariance term with float64
 Torch linear algebra on CUDA, then the workflow resumed from its cached rows and
 completed successfully.
 
-Status: resolved for
-`remote_scripts/eval_few/eval_few_style_1_tgprs/evaluate_clip_fid.py`.
+Status: resolved for both artistic-style evaluators:
+
+- `remote_scripts/eval_few/eval_few_style_1_tgprs/evaluate_clip_fid.py`;
+- `remote_scripts/eval_few/eval_few_style_1/evaluate_clip_fid.py`.
 
 ## Impact
 
@@ -122,7 +124,9 @@ evaluation still uses the unmodified SciPy implementation.
 Relevant implementation:
 
 - `remote_scripts/eval_few/eval_few_style_1_tgprs/evaluate_clip_fid.py`
+- `remote_scripts/eval_few/eval_few_style_1/evaluate_clip_fid.py`
 - `tests/test_eval_few_style_tgprs_workflow.py`
+- `tests/test_eval_few_style_workflow.py`
 
 ## Validation
 
@@ -216,7 +220,6 @@ can exhibit the same CPU bottleneck:
 - `src/clip_score_cal.py`
 - `remote_scripts/eval_few/eval_few_ins_1/evaluate_clip_fid.py`
 - `remote_scripts/eval_few/eval_few_ins_1_tgprs/evaluate_clip_fid.py`
-- `remote_scripts/eval_few/eval_few_style_1/evaluate_clip_fid.py`
 - `remote_scripts/eval_paper_comparison_clip_fid/evaluate_mscoco_clip_fid.py`
 
 Recommended follow-up:

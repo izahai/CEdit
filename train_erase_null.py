@@ -67,6 +67,15 @@ def build_argument_parser():
     parser.add_argument('--target_concepts', type=str, default=None)
     parser.add_argument('--anchor_concepts', type=str, default=None)
     parser.add_argument(
+        '--erase_style',
+        action='store_true',
+        default=False,
+        help=(
+            "Append 'style' to each target prompt only when computing its "
+            'text-encoder embedding'
+        ),
+    )
+    parser.add_argument(
         '--anchor_mode',
         choices=ANCHOR_MODES,
         default='legacy',
@@ -200,6 +209,13 @@ def normalize_subspace_anchor_concepts(value):
             'Every item in subspace_anchor_concepts must be a string'
         )
     return [concept.strip() for concept in concepts]
+
+
+def target_embedding_prompts(target_concepts, erase_style=False):
+    """Return the prompts used only to encode target representations."""
+    if not erase_style:
+        return list(target_concepts)
+    return [f'{concept} style' for concept in target_concepts]
 
 
 def load_subspace_concepts(path):
@@ -562,8 +578,18 @@ def edit_model(
 
     # region [Target and Anchor]
     target_embeddings, anchor_embeddings = [], []
+    embedding_prompts = target_embedding_prompts(
+        target_concepts,
+        erase_style=getattr(args, 'erase_style', False),
+    )
+    if getattr(args, 'erase_style', False):
+        print(f"Target embedding prompts: {embedding_prompts}")
     for i in range(0, len(target_concepts)):
-        target_inputs = get_token_id(target_concepts[i], pipeline.tokenizer, return_ids_only=False)
+        target_inputs = get_token_id(
+            embedding_prompts[i],
+            pipeline.tokenizer,
+            return_ids_only=False,
+        )
         target_embs = pipeline.text_encoder(target_inputs.input_ids.to(device)).last_hidden_state[0]
         anchor_inputs = get_token_id(anchor_concepts[i], pipeline.tokenizer, return_ids_only=False)
         anchor_embs = pipeline.text_encoder(anchor_inputs.input_ids.to(device)).last_hidden_state[0]
