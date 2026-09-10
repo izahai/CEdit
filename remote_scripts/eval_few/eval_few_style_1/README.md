@@ -33,8 +33,8 @@ edited checkpoints and produces 90 PNG files.
 From the local repository, set the remote host and port:
 
 ```bash
-export VAST_HOST='61.32.91.194'
-export VAST_PORT='19912'
+export VAST_HOST='116.127.115.18'
+export VAST_PORT='23341'
 
 rsync -az --progress \
   --exclude='.git/' \
