@@ -14,7 +14,8 @@ $$
 
 where:
 
-- $\rho_i$ is a fixed erasure norm, denoted by `erase_norm`;
+- $\rho_i$ is the per-target `erase_norm_scale`, computed from the mean norm
+  of the residual embeddings originating at $t_i$;
 - $v_i$ is a learnable unit direction constrained to the semantic displacement
   space;
 - $a_i$ replaces the final content token before the end-of-sequence token in
@@ -30,6 +31,67 @@ The intended result is an anchor that is both:
 
 1. constrained to a semantically meaningful displacement from the target; and
 2. realizable by the diffusion model as measured by image-text CLIP alignment.
+
+## Mean residual-derived erasure norm
+
+The displacement magnitude is not an independently selected constant. For
+each target, it is computed only from residuals between that target and the
+explicitly defined anchors. Residuals between different targets are not used
+in this magnitude calculation.
+
+Let the defined anchor embeddings be
+
+$$
+\mathcal A = \{a_1,a_2,\ldots,a_M\}.
+$$
+
+For target $t_i$, its residual with anchor $a_j$ is
+
+$$
+d_{ij}=a_j-t_i,
+\qquad a_j\in\mathcal A.
+$$
+
+The target-specific erasure norm scale is the mean norm of its residuals with
+all defined anchors:
+
+$$
+\rho_i
+=
+\operatorname{erase\_norm\_scale}_i
+=
+\frac{1}{M}
+\sum_{j=1}^{M}
+\lVert a_j-t_i\rVert_2.
+$$
+
+The learnable anchor therefore becomes
+
+$$
+a_i
+=
+t_i
++
+\left(
+    \frac{1}{M}
+    \sum_{j=1}^{M}
+    \lVert a_j-t_i\rVert_2
+\right)v_i.
+$$
+
+This gives every target a magnitude derived from its relationship to the
+defined anchors. Targets farther from the anchors receive a larger
+displacement, while targets closer to the anchors receive a smaller one.
+
+The residuals used in this mean must live in the same representation space as
+the learned anchor. If $a_i$ replaces one contextual token, compute the norms
+from residuals between the corresponding contextual tokens. If the method
+instead learns a displacement for an entire flattened conditioning sequence,
+compute the norms from flattened sequence residuals. Mixing a full-sequence
+norm with a single-token displacement would produce an inconsistent scale.
+
+At least one defined anchor is required. The anchor list and computed scale
+should be recorded per target for reproducibility.
 
 ## Semantic displacement constraint
 
@@ -57,7 +119,8 @@ $$
 
 The normalization must occur **after** projection. Even if $u_i$ is a unit
 vector, $P_{\mathrm{erase}}u_i$ generally has norm smaller than one. Without
-renormalization, `erase_norm` would not equal the actual displacement norm.
+renormalization, the computed `erase_norm_scale` would not equal the actual
+displacement norm.
 
 A simpler and numerically cleaner parameterization learns coefficients
 $c_i \in \mathbb{R}^k$ directly:
@@ -360,24 +423,26 @@ useful signal.
 For each target concept $i$:
 
 1. Build the orthonormal semantic displacement basis $B$.
-2. Initialize $c_i$ from an anchor-directed direction, a projected
+2. Compute $\rho_i$ as the mean norm of the residuals from target $t_i$ to all
+   explicitly defined anchors; do not include residuals to other targets.
+3. Initialize $c_i$ from an anchor-directed direction, a projected
    negative-target direction, or a fixed random seed.
-3. Normalize $c_i$ and construct $a_i=t_i+\rho_iB^{\top}c_i/\lVert c_i\rVert$.
-4. Replace the chosen content token in the contextual conditioning sequence.
-5. Sample one or more initial noise latents and use the same noise for both
+4. Normalize $c_i$ and construct $a_i=t_i+\rho_iB^{\top}c_i/\lVert c_i\rVert$.
+5. Replace the chosen content token in the contextual conditioning sequence.
+6. Sample one or more initial noise latents and use the same noise for both
    image branches.
-6. Generate and cache the original-target images without gradients.
-7. Generate the learned-anchor branch through the truncation boundary without
+7. Generate and cache the original-target images without gradients.
+8. Generate the learned-anchor branch through the truncation boundary without
    retaining gradients.
-8. Detach the boundary latent and enable gradients for the final denoising
+9. Detach the boundary latent and enable gradients for the final denoising
    step or final $K$ steps.
-9. Decode the learned-anchor image with the frozen VAE.
-10. Project the learned anchor into the joint CLIP text-image space and compute
+10. Decode the learned-anchor image with the frozen VAE.
+11. Project the learned anchor into the joint CLIP text-image space and compute
     its similarity to both image branches.
-11. Compute the contrastive margin-ranking objective.
-12. Backpropagate only to $c_i$ and take an optimizer step.
-13. Repeat for the desired number of optimizer steps.
-14. Save the final residual
+12. Compute the contrastive margin-ranking objective.
+13. Backpropagate only to $c_i$ and take an optimizer step.
+14. Repeat for the desired number of optimizer steps.
+15. Save the final residual
 
 $$
 r_i=\rho_iB^{\top}
@@ -396,8 +461,8 @@ Start with a small few-concept benchmark and compare:
 4. CLIP-guided last-$K$-step search for a small $K$;
 5. CLIP-guided random-step search.
 
-Keep the semantic displacement basis, residual rank, `erase_norm`, SPEED
-threshold, seeds, and evaluation prompts fixed across methods.
+Keep the semantic displacement basis, residual rank, mean-norm computation,
+SPEED threshold, seeds, and evaluation prompts fixed across methods.
 
 Suggested initial settings:
 
