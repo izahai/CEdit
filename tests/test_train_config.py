@@ -5,6 +5,8 @@ import unittest
 from unittest.mock import patch
 from pathlib import Path
 
+import torch
+
 
 def _install_optional_dependency_stubs():
     pandas = types.ModuleType("pandas")
@@ -14,6 +16,7 @@ def _install_optional_dependency_stubs():
     kmeans_module.kmeans = None
     diffusers = types.ModuleType("diffusers")
     diffusers.StableDiffusionPipeline = object
+    diffusers.DDPMScheduler = object
     sys.modules.setdefault("pandas", pandas)
     sys.modules.setdefault("tqdm", tqdm_module)
     sys.modules.setdefault("kmeans_pytorch", kmeans_module)
@@ -28,6 +31,7 @@ from train_erase_null import (
     normalize_concepts,
     normalize_subspace_anchor_concepts,
     parse_args,
+    resolve_target_anchor_embeddings,
     target_embedding_prompts,
 )
 
@@ -248,6 +252,105 @@ class TrainConfigTests(unittest.TestCase):
             normalize_concepts(["", "person"], "anchor_concepts", allow_empty=True),
             ["", "person"],
         )
+
+    def test_anchor_source_defaults_to_text(self):
+        _, args = parse_args([])
+
+        self.assertEqual(args.anchor_source, "text")
+        self.assertIsNone(args.learned_anchor_path)
+
+    def test_accepts_learned_anchor_source(self):
+        _, args = parse_args(
+            [
+                "--anchor_source",
+                "learned",
+                "--learned_anchor_path",
+                "logs/learned_anchors/snoopy",
+            ]
+        )
+
+        self.assertEqual(args.anchor_source, "learned")
+        self.assertEqual(
+            args.learned_anchor_path,
+            "logs/learned_anchors/snoopy",
+        )
+
+    def test_rejects_incomplete_or_ambiguous_learned_anchor_options(self):
+        with self.assertRaises(SystemExit):
+            parse_args(["--anchor_source", "learned"])
+        with self.assertRaises(SystemExit):
+            parse_args(
+                [
+                    "--anchor_source",
+                    "learned",
+                    "--learned_anchor_path",
+                    "artifact",
+                    "--anchor_concepts",
+                    "",
+                ]
+            )
+        with self.assertRaises(SystemExit):
+            parse_args(
+                [
+                    "--anchor_source",
+                    "learned",
+                    "--learned_anchor_path",
+                    "artifact",
+                    "--anchor_mode",
+                    "shared_residual_mean",
+                ]
+            )
+        with self.assertRaises(SystemExit):
+            parse_args(["--learned_anchor_path", "artifact"])
+
+    def test_rejects_erase_style_with_learned_anchor(self):
+        with self.assertRaises(SystemExit):
+            parse_args(
+                [
+                    "--anchor_source",
+                    "learned",
+                    "--learned_anchor_path",
+                    "artifact",
+                    "--erase_style",
+                ]
+            )
+
+    def test_resolves_ordered_learned_anchor_tensors(self):
+        class Tokenizer:
+            model_max_length = 5
+
+            def __call__(self, *_args, **_kwargs):
+                return types.SimpleNamespace(
+                    input_ids=torch.tensor([[0, 3, 4, 2, 2]]),
+                    attention_mask=torch.tensor([[1, 1, 1, 1, 0]]),
+                )
+
+        class TextEncoder:
+            def __call__(self, input_ids):
+                batch_size, sequence_length = input_ids.shape
+                hidden = torch.arange(
+                    batch_size * sequence_length * 2,
+                    dtype=torch.float32,
+                ).reshape(batch_size, sequence_length, 2)
+                return types.SimpleNamespace(last_hidden_state=hidden)
+
+        pipeline = types.SimpleNamespace(
+            tokenizer=Tokenizer(),
+            text_encoder=TextEncoder(),
+        )
+        learned = [torch.tensor([[9.0, 10.0]])]
+
+        targets, anchors, prompts = resolve_target_anchor_embeddings(
+            pipeline=pipeline,
+            target_concepts=["Snoopy"],
+            anchor_concepts=None,
+            device="cpu",
+            learned_anchor_embeddings=learned,
+        )
+
+        self.assertEqual(prompts, ["Snoopy"])
+        self.assertEqual(targets[0].shape, (1, 2))
+        self.assertTrue(torch.equal(anchors[0], learned[0]))
 
 
 if __name__ == "__main__":

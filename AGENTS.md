@@ -4,6 +4,8 @@
 
 This repository implements SPEED concept erasure for Stable Diffusion v1.4. Main entry points are `train_erase_null.py` for model editing, `sample.py` for few-concept sampling, and `sample2.py` for benchmark and multi-concept sampling. Put reusable Python logic in `src/`; prompt templates live in `src/template.py`, while `*_cal.py` modules calculate metrics. Benchmark CSVs belong in `data/`, tests in `tests/`, local workflows in `scripts/`, and reproducible remote pipelines in `remote_scripts/`. Store generated checkpoints and images under `logs/` or workflow output directories; do not commit them.
 
+`Diffusion-MU-Attack-main/` is a read-only reference implementation for ideas that may be adapted into this codebase. Do not edit, reformat, rename, move, or delete files in that directory. When adopting an idea from it, implement the adapted code in the appropriate existing project location (such as `src/`, an entry point, or `tests/`) and follow this repository's conventions rather than modifying or depending directly on the reference folder.
+
 Run unit tests with:
 
 ```bash

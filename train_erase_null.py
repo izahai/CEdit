@@ -19,6 +19,7 @@ from src.residual_subspace import (
     build_smallest_cosine_subspace_residuals,
     build_target_global_pairwise_residual_subspace_residuals,
 )
+from src.learned_anchor import load_learned_anchors
 from src.utils import seed_everything
 
 
@@ -66,6 +67,18 @@ def build_argument_parser():
     # Erase Config
     parser.add_argument('--target_concepts', type=str, default=None)
     parser.add_argument('--anchor_concepts', type=str, default=None)
+    parser.add_argument(
+        '--anchor_source',
+        choices=['text', 'learned'],
+        default='text',
+        help='Load anchors from text prompts or a learned-anchor artifact',
+    )
+    parser.add_argument(
+        '--learned_anchor_path',
+        type=str,
+        default=None,
+        help='Directory produced by learn_anchor.py',
+    )
     parser.add_argument(
         '--erase_style',
         action='store_true',
@@ -173,6 +186,26 @@ def parse_args(argv=None):
             '--subspace_concepts_path is required when --anchor_mode is '
             'global_pairwise_residual_subspace'
         )
+    if args.anchor_source == 'learned':
+        if not args.learned_anchor_path:
+            parser.error(
+                '--learned_anchor_path is required when --anchor_source is learned'
+            )
+        if args.anchor_concepts is not None:
+            parser.error(
+                '--anchor_concepts cannot be used when --anchor_source is learned'
+            )
+        if args.anchor_mode != 'legacy':
+            parser.error(
+                '--anchor_source learned currently supports only '
+                '--anchor_mode legacy'
+            )
+        if args.erase_style:
+            parser.error('--anchor_source learned does not support --erase_style')
+    elif args.learned_anchor_path is not None:
+        parser.error(
+            '--learned_anchor_path requires --anchor_source learned'
+        )
     return parser, args
 
 
@@ -270,6 +303,73 @@ def encode_last_subject_embeddings(pipeline, concepts, device, chunk_size=128):
             hidden_states[batch_indices, subject_indices].unsqueeze(1)
         )
     return torch.cat(embeddings, dim=0)
+
+
+@torch.no_grad()
+def resolve_target_anchor_embeddings(
+    pipeline,
+    target_concepts,
+    anchor_concepts,
+    device,
+    erase_style=False,
+    learned_anchor_embeddings=None,
+):
+    """Resolve text or learned anchors into SPEED-compatible tensors."""
+
+    if (
+        learned_anchor_embeddings is not None
+        and len(learned_anchor_embeddings) != len(target_concepts)
+    ):
+        raise ValueError(
+            "Learned anchor count must match the number of target concepts"
+        )
+    if learned_anchor_embeddings is not None and target_concepts == ['nudity']:
+        raise ValueError("Learned anchors do not support the nudity representation")
+    embedding_prompts = target_embedding_prompts(
+        target_concepts,
+        erase_style=erase_style,
+    )
+    target_embeddings = []
+    anchor_embeddings = []
+    for index, target_prompt in enumerate(embedding_prompts):
+        target_inputs = get_token_id(
+            target_prompt,
+            pipeline.tokenizer,
+            return_ids_only=False,
+        )
+        target_hidden = pipeline.text_encoder(
+            target_inputs.input_ids.to(device)
+        ).last_hidden_state[0]
+        if learned_anchor_embeddings is None:
+            anchor_inputs = get_token_id(
+                anchor_concepts[index],
+                pipeline.tokenizer,
+                return_ids_only=False,
+            )
+            anchor_hidden = pipeline.text_encoder(
+                anchor_inputs.input_ids.to(device)
+            ).last_hidden_state[0]
+        else:
+            anchor_inputs = None
+            anchor_hidden = learned_anchor_embeddings[index].to(
+                device=device,
+                dtype=target_hidden.dtype,
+            )
+
+        if target_concepts == ['nudity']:
+            target_embedding = target_hidden[1:, :]
+            anchor_embedding = anchor_hidden[1:, :]
+        else:
+            target_index = target_inputs.attention_mask[0].sum().item() - 2
+            target_embedding = target_hidden[[target_index], :]
+            if learned_anchor_embeddings is None:
+                anchor_index = anchor_inputs.attention_mask[0].sum().item() - 2
+                anchor_embedding = anchor_hidden[[anchor_index], :]
+            else:
+                anchor_embedding = anchor_hidden
+        target_embeddings.append(target_embedding)
+        anchor_embeddings.append(anchor_embedding)
+    return target_embeddings, anchor_embeddings, embedding_prompts
 
 
 def build_target_anchor_statistics(
@@ -557,6 +657,7 @@ def edit_model(
     device="cuda",
     subspace_concepts=None,
     subspace_anchor_concepts=None,
+    learned_anchor_embeddings=None,
 ):
 
     I = torch.eye(emb_size, device=device)
@@ -577,30 +678,18 @@ def edit_model(
         raise ValueError("Invalid baseline")
 
     # region [Target and Anchor]
-    target_embeddings, anchor_embeddings = [], []
-    embedding_prompts = target_embedding_prompts(
-        target_concepts,
-        erase_style=getattr(args, 'erase_style', False),
+    target_embeddings, anchor_embeddings, embedding_prompts = (
+        resolve_target_anchor_embeddings(
+            pipeline=pipeline,
+            target_concepts=target_concepts,
+            anchor_concepts=anchor_concepts,
+            device=device,
+            erase_style=getattr(args, 'erase_style', False),
+            learned_anchor_embeddings=learned_anchor_embeddings,
+        )
     )
     if getattr(args, 'erase_style', False):
         print(f"Target embedding prompts: {embedding_prompts}")
-    for i in range(0, len(target_concepts)):
-        target_inputs = get_token_id(
-            embedding_prompts[i],
-            pipeline.tokenizer,
-            return_ids_only=False,
-        )
-        target_embs = pipeline.text_encoder(target_inputs.input_ids.to(device)).last_hidden_state[0]
-        anchor_inputs = get_token_id(anchor_concepts[i], pipeline.tokenizer, return_ids_only=False)
-        anchor_embs = pipeline.text_encoder(anchor_inputs.input_ids.to(device)).last_hidden_state[0]
-        if target_concepts == ['nudity']:
-            target_embs = target_embs[1:, :]  # all tokens
-            anchor_embs = anchor_embs[1:, :]  # all tokens
-        else:
-            target_embs = target_embs[[(target_inputs.attention_mask[0].sum().item() - 2)], :]  # last subject token
-            anchor_embs = anchor_embs[[(anchor_inputs.attention_mask[0].sum().item() - 2)], :]  # last subject token
-        target_embeddings.append(target_embs)
-        anchor_embeddings.append(anchor_embs)
     anchor_mode = getattr(args, 'anchor_mode', 'legacy')
     subspace_concept_embeddings = None
     subspace_anchor_embeddings = None
@@ -927,7 +1016,14 @@ def edit_model(
             f"used first basis vector="
             f"{anchor_diagnostics['subspace_basis_fallback_count']}"
         )
-    print(f"Current model status: Edited {str(target_concepts)} into {str(anchor_concepts)}")
+    if learned_anchor_embeddings is None:
+        anchor_description = str(anchor_concepts)
+    else:
+        anchor_description = f"learned anchors from {args.learned_anchor_path!r}"
+    print(
+        f"Current model status: Edited {str(target_concepts)} into "
+        f"{anchor_description}"
+    )
     return edit_dict
 
 
@@ -935,22 +1031,29 @@ if __name__ == '__main__':
     parser, args = parse_args()
     if args.target_concepts is None:
         parser.error('target_concepts is required in the YAML config or CLI')
-    if args.anchor_concepts is None:
+    if args.anchor_source == 'text' and args.anchor_concepts is None:
         parser.error('anchor_concepts is required in the YAML config or CLI')
     if args.retain_path is not None and args.heads is None:
         parser.error('heads is required when retain_path is set')
     try:
         target_concepts = normalize_concepts(args.target_concepts, 'target_concepts')
-        anchor_concepts = normalize_concepts(
-            args.anchor_concepts,
-            'anchor_concepts',
-            allow_empty=True,
-        )
+        anchor_concepts = None
+        if args.anchor_source == 'text':
+            anchor_concepts = normalize_concepts(
+                args.anchor_concepts,
+                'anchor_concepts',
+                allow_empty=True,
+            )
         subspace_anchor_concepts = normalize_subspace_anchor_concepts(
             args.subspace_anchor_concepts
         )
     except ValueError as error:
         parser.error(str(error))
+    if (
+        args.anchor_source == 'learned'
+        and any(concept.casefold() == 'nudity' for concept in target_concepts)
+    ):
+        parser.error('--anchor_source learned does not support nudity')
     if not np.isfinite(args.residual_scale):
         parser.error('--residual_scale must be finite')
     if args.residual_rank <= 0:
@@ -991,7 +1094,9 @@ if __name__ == '__main__':
     retain_path = args.retain_path
     
     file_suffix = "_".join(target_concepts[:5]) + f"_{len(target_concepts)}"  # The filename only displays the first 5 target concepts in multi-concept erasure
-    if len(anchor_concepts) == 1:
+    if args.anchor_source == 'learned':
+        file_suffix += '-to_learned_anchor'
+    elif len(anchor_concepts) == 1:
         anchor_concepts = anchor_concepts * len(target_concepts)
         if anchor_concepts[0] == "":
             file_suffix += '-to_null'
@@ -1060,6 +1165,21 @@ if __name__ == '__main__':
             )
 
     pipeline = StableDiffusionPipeline.from_pretrained(args.sd_ckpt).to(device)
+    learned_anchor_embeddings = None
+    if args.anchor_source == 'learned':
+        try:
+            learned_anchor_embeddings = load_learned_anchors(
+                args.learned_anchor_path,
+                target_concepts=target_concepts,
+                pipeline=pipeline,
+                expected_sd_ckpt=args.sd_ckpt,
+            )
+        except (OSError, ValueError) as error:
+            parser.error(str(error))
+        print(
+            f"Loaded {len(learned_anchor_embeddings)} learned anchor(s) from "
+            f"{args.learned_anchor_path!r}"
+        )
 
     edit_dict = edit_model(
         args=args,
@@ -1071,6 +1191,7 @@ if __name__ == '__main__':
         device=device, 
         subspace_concepts=subspace_concepts,
         subspace_anchor_concepts=subspace_anchor_concepts,
+        learned_anchor_embeddings=learned_anchor_embeddings,
     )
 
     save_path = args.save_path or "logs/checkpoints"
