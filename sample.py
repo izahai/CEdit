@@ -12,6 +12,7 @@ import torch
 from diffusers import DiffusionPipeline, DPMSolverMultistepScheduler
 
 from src.template import template_dict
+from src.edit_checkpoint import apply_edit_checkpoint
 from src.utils import *
 
 
@@ -88,7 +89,7 @@ def main():
     if 'edit' in mode_list:
         unet_edit = copy.deepcopy(unet)
         edit_path = args.edit_ckpt or os.path.join("logs/checkpoints", sorted(os.listdir("logs/checkpoints"))[-1])
-        unet_edit.load_state_dict(torch.load(edit_path, map_location='cpu'), strict=False)
+        apply_edit_checkpoint(unet_edit, edit_path, device='cpu')
     # endregion
 
     uncond_embedding = get_textencoding(get_token('', tokenizer), text_encoder)

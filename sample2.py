@@ -12,6 +12,7 @@ from torch.utils.data import Dataset, DataLoader
 from diffusers import DiffusionPipeline, DPMSolverMultistepScheduler
 
 from src.template import template_dict
+from src.edit_checkpoint import apply_edit_checkpoint
 from src.utils import *
 
 
@@ -76,7 +77,7 @@ def main():
     unet, tokenizer, text_encoder, vae = pipe.unet, pipe.tokenizer, pipe.text_encoder, pipe.vae
     if 'edit' in mode_list:
         unet_edit = copy.deepcopy(unet)
-        unet_edit.load_state_dict(torch.load(args.edit_ckpt, map_location='cpu'), strict=False)
+        apply_edit_checkpoint(unet_edit, args.edit_ckpt, device='cpu')
     # endregion
 
     uncond_embedding = get_textencoding(get_token('', tokenizer), text_encoder)

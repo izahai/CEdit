@@ -1,0 +1,110 @@
+import tempfile
+import unittest
+from pathlib import Path
+
+from train_closed_form_backprop import (
+    load_prompt_csv,
+    parse_args,
+    resolve_prompts,
+    validate_args,
+)
+
+
+class ClosedFormBackpropConfigTests(unittest.TestCase):
+    def _required(self):
+        return [
+            "--target_concepts",
+            "Snoopy",
+            "--anchor_concepts",
+            "",
+            "--retain_path",
+            "data/instance.csv",
+            "--heads",
+            "concept",
+        ]
+
+    def test_cli_overrides_yaml_and_empty_anchor_is_preserved(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config = Path(temp_dir) / "config.yaml"
+            config.write_text(
+                "target_concepts: [Snoopy]\n"
+                "anchor_concepts: ['']\n"
+                "retain_path: data/instance.csv\n"
+                "heads: concept\n"
+                "anchor_lr: 0.1\n"
+                "max_anchor_norm: target\n",
+                encoding="utf-8",
+            )
+            parser, args = parse_args(
+                ["--config", str(config), "--anchor_lr", "0.02"]
+            )
+            targets, anchors = validate_args(parser, args)
+
+        self.assertEqual(targets, ["Snoopy"])
+        self.assertEqual(anchors, [""])
+        self.assertEqual(args.anchor_lr, 0.02)
+        self.assertEqual(args.max_anchor_norm, "target")
+
+    def test_rejects_modes_outside_the_prototype(self):
+        for option, value in (
+            ("--params", "KV"),
+            ("--anchor_mode", "shared_residual_mean"),
+            ("--baseline", "other"),
+            ("--aug_num", "10"),
+            ("--max_anchor_norm", "60"),
+        ):
+            with self.subTest(option=option):
+                parser, args = parse_args(self._required() + [option, value])
+                with self.assertRaises(SystemExit):
+                    validate_args(parser, args)
+
+    def test_rejects_multiple_targets(self):
+        values = self._required()
+        values[1] = "Snoopy,Mickey"
+        parser, args = parse_args(values)
+        with self.assertRaises(SystemExit):
+            validate_args(parser, args)
+
+    def test_prompt_fallback_and_csv_validation(self):
+        self.assertEqual(resolve_prompts(None, ["Snoopy"]), ["Snoopy"])
+        with tempfile.TemporaryDirectory() as temp_dir:
+            valid = Path(temp_dir) / "valid.csv"
+            valid.write_text("prompt\nSnoopy running\n", encoding="utf-8")
+            self.assertEqual(load_prompt_csv(valid), ["Snoopy running"])
+
+            invalid = Path(temp_dir) / "invalid.csv"
+            invalid.write_text("text\nSnoopy running\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "prompt.*column"):
+                load_prompt_csv(invalid)
+
+    def test_unknown_yaml_keys_are_rejected(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config = Path(temp_dir) / "config.yaml"
+            config.write_text("mystery: true\n", encoding="utf-8")
+            with self.assertRaises(SystemExit):
+                parse_args(["--config", str(config)])
+            config.write_text("max_residual_norm: 1.0\n", encoding="utf-8")
+            with self.assertRaises(SystemExit):
+                parse_args(["--config", str(config)])
+
+    def test_yaml_types_are_validated_before_model_loading(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            for bad_field in (
+                "anchor_lr: 'fast'",
+                "anchor_steps: 2.5",
+                "seed: 'zero'",
+                "erase_style: 'false'",
+                "validation_seed: 0",
+            ):
+                with self.subTest(bad_field=bad_field):
+                    config = Path(temp_dir) / "config.yaml"
+                    config.write_text(bad_field + "\n", encoding="utf-8")
+                    with self.assertRaises(SystemExit):
+                        parser, args = parse_args(
+                            ["--config", str(config)] + self._required()
+                        )
+                        validate_args(parser, args)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -3,8 +3,10 @@
 ## Objective for the next session
 
 Implement a minimal prototype that learns continuous anchor embeddings by
-backpropagating a predicted-noise objective through the existing legacy SPEED
-closed-form edit.
+minimizing target-conditioned predicted-noise cosine similarity through the
+existing legacy SPEED closed-form edit. Use `erasing-main/` as context for the
+SD training architecture; do not copy its ESD objective or make it a runtime
+dependency.
 
 Preserve the legacy method's forward equation, including its dense
 target-anchor statistic, retain projector `P`, matrix `M`, four-vector null
@@ -15,7 +17,7 @@ optimization only.
 
 The full research proposal is recorded in:
 
-- `docs/new-idea/differentiable_closed_form_anchor_optimization.md`
+- `docs/idea-closed-form-backprop/differentiable_closed_form_anchor_optimization.md`
 
 ## Central idea
 
@@ -27,12 +29,35 @@ anchor embedding
     -> legacy target-anchor statistic
     -> exact legacy SPEED effective weights
     -> edited U-Net predicted noise
-    -> erasure and preservation losses
+    -> target cosine loss
     -> gradient back to anchor embedding
 ```
 
 Freeze the original U-Net and text encoder. Optimize only one anchor embedding
 per target, or equivalently one residual per target.
+
+## How to use `erasing-main`
+
+Use the Stable Diffusion path in `erasing-main/utils/esd_trainer.py` as the
+reference for:
+
+- `ESDConfig` structure and SD pipeline setup;
+- prompt encoding and frozen text/VAE setup;
+- sampling \(x_t\) by running a random prefix of the frozen denoising process;
+- the SD U-Net calling convention; and
+- name-based parameter discovery and metadata-rich checkpoint conventions.
+
+The ESD negative-guidance target in
+`StableDiffusionESDAdapter.training_step` is explicitly out of scope. The
+research objective instead compares base and edited target-conditioned noise
+predictions using cosine similarity.
+
+Do not copy `PreparedComponent.use_base()` / `.use_student()` into the
+differentiable path. Those methods swap leaf `Parameter` objects for ordinary
+ESD fine-tuning. The new student weights are non-leaf tensors computed from
+the anchor, so execute them with `torch.func.functional_call` and leave the
+base U-Net untouched. Limit the prototype to SD v1.4 and
+`attn2.to_v.weight`; the SDXL and FLUX adapters are out of scope.
 
 ## Exact legacy equation to preserve
 
@@ -129,21 +154,22 @@ The repository default is `aug_num=10`. In that path, preliminary
 depends on the anchor through hard selections. This path is not smoothly
 differentiable.
 
-For the first gradient-path prototype, use one of these explicit policies:
+For the first gradient-path prototype, explicitly use `aug_num=0`. This makes
+the retain covariance and `P` anchor-independent while retaining the complete
+closed-form equation. It also lets the detached legacy checkpoint builder
+reproduce the functional weights exactly.
 
-1. Preferred: calculate the normal legacy `P` once from the initialization
-   anchor and freeze it throughout anchor optimization.
-2. Strict forward refresh: recompute `P` from the current anchor under
-   `torch.no_grad()` using deterministic perturbations, while treating `P` as
-   stop-gradient.
+After that parity milestone, test the repository default `aug_num=10` by
+calculating the normal legacy `P` once from the initialization anchor and
+freezing it throughout optimization. Supporting that mode requires a
+checkpoint materializer that accepts the frozen projector state; rerunning the
+current legacy builder with the optimized anchor would recompute filtering and
+need not match the weights used for validation.
 
-The first policy is more stable and isolates the question of whether the
-anchor can be learned through the legacy closed-form edit. After anchor
-optimization, run the normal legacy checkpoint builder once with the detached
-best anchor and its configured legacy settings.
-
-Do not silently change `aug_num` or remove filtering. Record the chosen
-projector policy in the experiment configuration and artifact.
+Do not silently change `aug_num` in baseline comparisons. Record the value and
+projector policy in the experiment configuration and artifact. A
+stop-gradient projector refresh with deterministic perturbations is a later
+ablation, not part of the minimal prototype.
 
 ## Functional U-Net execution
 
@@ -168,9 +194,14 @@ parameter_overrides, diagnostics = edit_state.effective_parameters(
 
 Use `torch.func.functional_call` to execute the U-Net with graph-connected
 effective weights. Build a mapping from `unet.named_parameters()` and override
-only the selected `attn2.to_v` weights. Freezing base parameters with
+only names containing `attn2.to_v` and ending in `.weight`; fail if no names
+match. Freezing base parameters with
 `requires_grad_(False)` does not block gradients through products involving
 the learnable anchor.
+
+Pass the effective tensors directly in the override mapping. Do not wrap them
+in `torch.nn.Parameter`, which would create new leaves and break the gradient
+path back to the anchor.
 
 Do not use these operations in the optimization path:
 
@@ -182,41 +213,124 @@ effective_weight.detach()
 
 They disconnect the predicted-noise loss from the anchor.
 
+After selecting the best anchor, save both the anchor/configuration artifact
+and a materialized legacy SPEED U-Net checkpoint. The metadata pattern in
+`erasing-main/utils/esd_checkpoint.py` is reusable, but use a SPEED-specific
+format identifier rather than `erasing-esd-v2`.
+
 ## Loss decisions
 
-Use the original model as a stop-gradient teacher. For each target-containing
-prompt, provide a context-matched counterfactual prompt in which only the
-target identity or style is removed.
+For the same noisy latent, timestep, and target-prompt hidden states, compute:
 
-```text
-target:         "Snoopy riding a bicycle"
-counterfactual: "a cartoon dog riding a bicycle"
+```python
+with torch.no_grad():
+    base_prediction = base_unet(
+        x_t,
+        timestep,
+        encoder_hidden_states=target_hidden_states,
+        return_dict=False,
+    )[0]
+
+edited_prediction = functional_call(
+    base_unet,
+    effective_parameter_overrides,
+    args=(x_t, timestep),
+    kwargs={
+        "encoder_hidden_states": target_hidden_states,
+        "return_dict": False,
+    },
+)[0]
+
+erase_loss_per_example = F.cosine_similarity(
+    edited_prediction.float().flatten(1),
+    base_prediction.float().flatten(1),
+    dim=1,
+    eps=cosine_eps,
+)
+erase_loss = erase_loss_per_example.mean()
 ```
 
-The initial erasure objective is predicted-noise MSE between:
+Minimize `erase_loss`. Similarity near 1 means the edit has not changed the
+target-conditioned noise direction; 0 is orthogonal and -1 is opposite. The
+cosine objective avoids raw predicted-noise scale differences across
+timesteps. Compute it independently for every batch item and then average.
 
-- the edited model conditioned on the target prompt; and
-- the original model conditioned on the counterfactual prompt.
+The base prediction is stop-gradient. The edited prediction must retain its
+gradient through the functional effective weights and into the anchor. Do not
+detach it. Both calls must receive tensor-identical `x_t`, `timestep`, and
+`target_hidden_states`.
 
-For retain prompts, minimize predicted-noise MSE between the edited and
-original models under the same prompt, latent, noise, and timestep.
+Compute cosine similarity in float32 and use an explicit epsilon. Log the
+edited/base prediction-norm ratio because cosine is poorly conditioned near a
+zero norm and does not itself penalize destructive scale changes.
 
-Do not minimize target-image diffusion loss against sampled Gaussian noise;
-that teaches the model to reconstruct the target. Do not simply maximize it;
-arbitrary model damage can satisfy that objective.
-
-A basic scalarized loss is:
+Low cosine is only a training surrogate. For the first experiment, use it as
+the only optimization loss:
 
 ```text
 loss = erase_loss
-     + retain_weight * retain_loss
-     + edit_weight * normalized_edit_norm
 ```
 
-Use per-target erasure losses for many-target optimization. A global mean can
-hide hard targets, so later use a soft maximum, hard-target sampling, or one
-constraint/dual variable per target. Compare preservation only at matched
-erasure strength.
+Do not add retention loss, edit-size regularization, norm penalties, or a
+constrained formulation to this initial run. Log retention metrics, edit norms,
+prediction-norm ratios, and finite-gradient status without feeding them into
+the optimizer. Full generation and retention evaluation are required to detect
+general model damage.
+
+Combining cosine loss with preservation or edit-size terms is a later
+experiment, after the cosine-only result is established.
+
+Use per-target erasure metrics for many-target optimization. A global mean can
+hide hard targets, so later use a soft maximum or hard-target sampling. Compare
+preservation only at matched erasure strength.
+
+## CLI interface
+
+Add a dedicated `train_closed_form_backprop.py` entry point. A direct
+single-target run should look like:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python train_closed_form_backprop.py \
+  --sd_ckpt "CompVis/stable-diffusion-v1-4" \
+  --target_concepts "Snoopy" \
+  --anchor_concepts "" \
+  --retain_path "data/instance.csv" \
+  --heads "concept" \
+  --params "V" \
+  --anchor_mode "legacy" \
+  --aug_num 0 \
+  --threshold 0.1 \
+  --retain_scale 1.0 \
+  --residual_scale 1.0 \
+  --lamb 0.0 \
+  --anchor_steps 200 \
+  --anchor_lr 1e-2 \
+  --anchor_batch_size 1 \
+  --max_residual_norm 1.0 \
+  --cosine_eps 1e-8 \
+  --num_inference_steps 50 \
+  --guidance_scale 3.0 \
+  --seed 0 \
+  --save_path "logs/closed_form_backprop/snoopy" \
+  --file_name "weight"
+```
+
+The learning rate is illustrative and must be tuned. Also support
+`--config configs/closed_form_backprop.yaml`, with explicit CLI values taking
+precedence. The optimization prompt CSV requires a `prompt` column; if omitted,
+use each target concept as its sole optimization prompt. `retain_path` remains
+required for the SPEED projector, not for a retain loss.
+
+The parser must reject settings outside the initial scope:
+
+```text
+params != V
+anchor_mode != legacy
+aug_num != 0
+```
+
+Do not add loss-weight flags or a generic objective selector yet. Save
+`weight.safetensors` and `anchor_optimization.pt` under `save_path`.
 
 ## Anchor parameterization
 
@@ -264,10 +378,13 @@ formula in the minimal prototype.
    `functional_call`.
 5. Verify the base U-Net receives no gradients while the anchor does.
 6. Extend to all selected value-projection layers.
-7. Add one-target predicted-noise optimization.
-8. Extend the anchor tensor and loss accounting to many targets.
-9. Detach the best anchor and generate a normal legacy SPEED checkpoint.
-10. Run full generation evaluation at matched erasure strength.
+7. Implement and independently test the per-example target-conditioned cosine
+   objective; reuse only the necessary SD state-sampling mechanics from
+   `erasing-main`.
+8. Add one-target anchor optimization against the cosine objective.
+9. Extend the anchor tensor and loss accounting to many targets.
+10. Detach the best anchor and generate a normal legacy SPEED checkpoint.
+11. Run full generation evaluation at matched erasure strength.
 
 ## Required tests
 
@@ -275,11 +392,23 @@ formula in the minimal prototype.
   equation for fixed inputs.
 - Single-target and many-target statistic construction matches
   `build_target_anchor_statistics`.
+- Cosine loss returns 1, 0, and -1 for identical, orthogonal, and opposite
+  synthetic predictions and is invariant to positive rescaling.
+- Zero and near-zero prediction norms produce finite loss and gradients.
+- Cosine is calculated per example before averaging across the batch.
+- Base and edited calls receive identical latents, timesteps, and target hidden
+  states.
+- Parameter selection returns only `attn2.to_v.weight` names and fails on an
+  empty match.
 - `torch.autograd.gradcheck` passes on a small double-precision dense equation.
 - Each anchor receives a finite, non-zero gradient.
 - Original model parameters receive no gradient.
+- Frozen reference execution sees the unchanged base weights, including after
+  a failed functional edited-model call.
 - `anchor == target` produces a zero target-anchor delta and zero update.
 - Frozen-projector behavior is deterministic.
+- CLI values override YAML, a missing optimization prompt file falls back to
+  target concepts, and unsupported prototype modes fail early.
 - Final detached checkpoint weights match the functional effective weights
   within the configured numerical tolerance.
 
@@ -290,7 +419,8 @@ python -m unittest discover -s tests
 ```
 
 GPU execution and full generation evaluation remain necessary. Improvement in
-predicted-noise loss alone is not evidence of successful concept erasure.
+target-prompt predicted-noise cosine alone is not evidence of successful
+concept erasure.
 
 ## Suggested skills
 
@@ -304,5 +434,6 @@ predicted-noise loss alone is not evidence of successful concept erasure.
 
 ## Workspace caution
 
-Inspect `git status` before editing. Preserve existing user changes and never
-modify the read-only `Diffusion-MU-Attack-main/` reference directory.
+Inspect `git status` before editing. Preserve existing user changes. Treat
+`erasing-main/` as vendored context: do not modify or import it from production
+code unless the task scope is explicitly expanded.
