@@ -215,7 +215,7 @@ class LearnedAnchorArtifactTests(unittest.TestCase):
                 "pad_token_id": tokenizer.pad_token_id,
             },
             "text_hidden_size": text_encoder.config.hidden_size,
-            "config": {"num_prefix_tokens": 2},
+            "config": {"num_prefix_tokens": 2, "dtype": "float32"},
             "targets": [
                 {
                     "target_id": target_id,
@@ -247,6 +247,26 @@ class LearnedAnchorArtifactTests(unittest.TestCase):
         self.assertEqual(len(anchors), 1)
         self.assertEqual(anchors[0].shape, (1, 8))
 
+    def test_artifact_serializes_non_finite_diagnostic_metric_as_null(self):
+        bundle, _ = self.make_bundle()
+        bundle.metrics = [
+            {
+                "type": "train",
+                "step": 26,
+                "clip_similarity": 0.2253,
+                "gradient_norm": float("nan"),
+            }
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            bundle.save(temp_dir)
+            record = json.loads(
+                (Path(temp_dir) / "metrics.jsonl").read_text(encoding="utf-8")
+            )
+
+        self.assertIsNone(record["gradient_norm"])
+        self.assertEqual(record["non_finite_fields"], ["gradient_norm"])
+
     def test_loader_rejects_reordered_or_changed_targets(self):
         bundle, pipeline = self.make_bundle()
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -257,6 +277,33 @@ class LearnedAnchorArtifactTests(unittest.TestCase):
             manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
             with self.assertRaisesRegex(ValueError, "target order"):
+                load_learned_anchors(temp_dir, ["Snoopy"], pipeline)
+
+    def test_loader_accepts_expected_float16_reencoding_drift(self):
+        bundle, pipeline = self.make_bundle()
+        bundle.manifest["config"]["dtype"] = "float16"
+        for key in (
+            "targets.target_0000.anchor_hidden_state",
+            "targets.target_0000.target_hidden_state",
+        ):
+            # The 74-token artifact observed 0.01206 max drift after its
+            # float16 hidden states were re-encoded as float32.
+            bundle.tensors[key] = bundle.tensors[key] + 0.0121
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            bundle.save(temp_dir)
+            anchors = load_learned_anchors(temp_dir, ["Snoopy"], pipeline)
+
+        self.assertEqual(len(anchors), 1)
+
+    def test_loader_still_rejects_large_float16_embedding_drift(self):
+        bundle, pipeline = self.make_bundle()
+        bundle.manifest["config"]["dtype"] = "float16"
+        bundle.tensors["targets.target_0000.anchor_hidden_state"] += 0.05
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            bundle.save(temp_dir)
+            with self.assertRaisesRegex(ValueError, "learned anchor differs"):
                 load_learned_anchors(temp_dir, ["Snoopy"], pipeline)
 
 

@@ -74,7 +74,8 @@ def main():
         for concept in concept_list_tmp:
             check_path = os.path.join(args.save_root, args.target_concept.replace(', ', '_'), concept, 'edit')
             os.makedirs(check_path, exist_ok=True)
-            if len(os.listdir(check_path)) != len(template_dict[args.erase_type]) * 10:
+            expected_images = len(template_dict[args.erase_type]) * args.num_samples
+            if len(os.listdir(check_path)) != expected_images:
                 concept_list.append(concept)
     else:
         concept_list = concept_list_tmp

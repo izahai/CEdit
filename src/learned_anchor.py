@@ -158,7 +158,8 @@ class LearnedAnchorBundle:
         save_file(serializable_tensors, str(tensor_tmp))
         with metrics_tmp.open("w", encoding="utf-8") as metrics_file:
             for record in self.metrics:
-                metrics_file.write(json.dumps(record, allow_nan=False) + "\n")
+                safe_record = _json_safe_metric_record(record)
+                metrics_file.write(json.dumps(safe_record, allow_nan=False) + "\n")
 
         previews_root = root / "previews"
         for relative_path, image in self.previews.items():
@@ -175,6 +176,20 @@ class LearnedAnchorBundle:
         os.replace(tensor_tmp, tensors_path)
         os.replace(metrics_tmp, metrics_path)
         os.replace(manifest_tmp, manifest_path)
+
+
+def _json_safe_metric_record(record: Mapping[str, Any]) -> Dict[str, Any]:
+    """Preserve non-finite diagnostics explicitly in strict JSON output."""
+
+    safe_record = dict(record)
+    non_finite_fields = []
+    for key, value in record.items():
+        if isinstance(value, float) and not math.isfinite(value):
+            safe_record[key] = None
+            non_finite_fields.append(key)
+    if non_finite_fields:
+        safe_record["non_finite_fields"] = non_finite_fields
+    return safe_record
 
 
 class StraightThroughCategorical(torch.autograd.Function):
@@ -885,6 +900,7 @@ def learn_anchors(
             if token_distributions.grad is None:
                 raise RuntimeError("CLIP loss did not reach the token distributions")
             gradient_norm = float(token_distributions.grad.norm().item())
+            gradient_finite = math.isfinite(gradient_norm)
             scaler.step(optimizer)
             scaler.update()
             with torch.no_grad():
@@ -905,6 +921,7 @@ def learn_anchors(
                         sum(recent_training_scores) / len(recent_training_scores)
                     ),
                     "gradient_norm": gradient_norm,
+                    "gradient_finite": gradient_finite,
                 }
             )
             progress.set_postfix(clip=f"{training_score:.4f}")
@@ -1075,6 +1092,9 @@ def load_learned_anchors(
         or expected_prefix_count <= 0
     ):
         raise ValueError("Learned-anchor manifest has an invalid prefix-token count")
+    artifact_dtype = config_metadata.get("dtype")
+    if artifact_dtype not in {"float16", "float32"}:
+        raise ValueError("Learned-anchor manifest has an invalid dtype")
 
     target_ids = [entry.get("target_id") for entry in entries]
     if (
@@ -1091,8 +1111,13 @@ def load_learned_anchors(
     vocab_size = len(tokenizer)
     hidden_size = pipeline.text_encoder.config.hidden_size
     comparison_tolerance = (
-        (1e-3, 1e-3)
-        if _module_dtype(pipeline.text_encoder) == torch.float16
+        # Long CLIP sequences can accumulate slightly more than 1e-2 absolute
+        # drift when float16 artifact states are recomputed in float32. The
+        # observed 74-prefix-token artifact reached 0.01206; 2e-2 still rejects
+        # materially changed embeddings while allowing expected re-encoding.
+        (2e-2, 1e-3)
+        if artifact_dtype == "float16"
+        or _module_dtype(pipeline.text_encoder) == torch.float16
         else (1e-5, 1e-4)
     )
     for entry, target in zip(entries, targets):

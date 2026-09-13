@@ -1,0 +1,121 @@
+# Method-standard TGPRS configuration from the current style workflow.
+sd_ckpt: CompVis/stable-diffusion-v1-4
+seed: 0
+
+anchor_source: text
+anchor_mode: target_global_pairwise_residual_subspace
+erase_style: false
+residual_rank: 30
+residual_scale: 1.0
+subspace_anchor_concepts:
+  - art
+  - abstract art
+  - painting
+  - visual art
+  - fine art
+  - traditional art
+  - contemporary art
+  - classical painting
+  - modern painting
+  - expressive painting
+  - figurative art
+  - painterly art
+  - illustrative art
+  - impressionistic painting
+  - post-impressionistic painting
+  - expressionist painting
+  - realist painting
+  - romantic painting
+  - minimalist art
+  - maximalist art
+  - textured painting
+  - bold brushwork
+  - delicate brushwork
+  - vibrant color palette
+  - muted color palette
+  - high contrast painting
+  - soft tonal painting
+  - geometric composition
+  - organic composition
+  - watercolor wash
+  - oil paint texture
+  - acrylic painting
+  - gouache painting
+  - ink wash painting
+  - charcoal drawing
+  - soft pastel
+  - tempera painting
+  - fresco painting
+  - encaustic painting
+  - mixed media art
+  - digital painting
+  - matte painting
+  - conceptual art
+  - editorial illustration
+  - storybook illustration
+  - graphic poster
+  - mural painting
+  - sketchbook drawing
+  - continuous line drawing
+  - stippled drawing
+  - crosshatched drawing
+  - impasto painting
+  - glazed painting
+  - scumbled painting
+  - wet on wet painting
+  - dry brush painting
+  - palette knife painting
+  - loose brushwork
+  - precise brushwork
+  - luminous color
+  - earth tone palette
+  - monochromatic palette
+  - complementary color palette
+  - analogous color palette
+  - warm color palette
+  - cool color palette
+  - saturated color palette
+  - desaturated color palette
+  - atmospheric perspective
+  - linear perspective
+  - flat perspective
+  - deep spatial composition
+  - shallow spatial composition
+  - balanced composition
+  - asymmetrical composition
+  - central composition
+  - dynamic diagonal composition
+  - layered composition
+  - open composition
+  - dramatic lighting
+  - diffused lighting
+  - backlit painting
+  - chiaroscuro lighting
+  - soft shadow painting
+  - hard edged painting
+  - soft edged painting
+  - finely detailed painting
+  - simplified form
+  - decorative pattern
+  - narrative painting
+  - symbolic painting
+  - dreamlike painting
+  - naturalistic painting
+  - highly stylized painting
+  - experimental art
+  - handcrafted art
+  - museum painting
+  - gallery art
+  - timeless painting
+  - representational art
+
+baseline: SPEED
+params: V
+aug_num: 0
+threshold: 1.0
+retain_scale: 1.0
+lamb: 0.0
+disable_filter: false
+
+heads: concept
+file_name: weight

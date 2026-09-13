@@ -1,0 +1,22 @@
+sd_ckpt: CompVis/stable-diffusion-v1-4
+clip_model: openai/clip-vit-large-patch14
+target_concepts:
+  - Van Gogh
+
+num_prefix_tokens: 4
+num_reference_images: 4
+num_validation_images: 1
+iterations: 1000
+learning_rate: 0.01
+weight_decay: 0.1
+timestep_min: 50
+timestep_max: 950
+validation_samples: 16
+validation_interval: 50
+
+reference_inference_steps: 50
+reference_guidance_scale: 7.5
+seed: 0
+device: cuda
+dtype: float16
+save_root: ${OUTPUT_ROOT}/learned_anchors/van_gogh

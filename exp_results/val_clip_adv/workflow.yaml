@@ -1,0 +1,43 @@
+# Full Van Gogh style-erasure comparison.
+runtime:
+  python_bin: python3
+  gpu_id: 0
+
+experiment:
+  profile: full
+  sd_ckpt: CompVis/stable-diffusion-v1-4
+  methods:
+    - original
+    - legacy
+    - target_global_pairwise_residual_subspace
+    - clip_guided_learned_anchor
+  edited_methods:
+    - legacy
+    - target_global_pairwise_residual_subspace
+    - clip_guided_learned_anchor
+  seed: 0
+  inference_timesteps: 20
+  guidance_scale: 7.5
+  num_samples_per_prompt: 10
+  batch_size: 10
+  mscoco_num_prompts: 1000
+  mscoco_batch_size: 10
+  clip_batch_size: 32
+  fid_batch_size: 32
+  fid_feature_layer: 2048
+  clip_model: openai/clip-vit-large-patch14
+
+task:
+  id: van_gogh
+  erase_type: style
+  target_concept: Van Gogh
+  anchor_concept: art
+  contents:
+    - Van Gogh
+    - Picasso
+    - Monet
+    - Paul Gauguin
+    - Caravaggio
+
+paths:
+  output_root: ${WORKSPACE_DIR}/cedit_val_clip_adv
