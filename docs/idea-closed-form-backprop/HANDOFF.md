@@ -4,9 +4,9 @@
 
 Implement a minimal prototype that learns continuous anchor embeddings by
 minimizing target-conditioned predicted-noise cosine similarity through the
-existing legacy SPEED closed-form edit. Use `erasing-main/` as context for the
-SD training architecture; do not copy its ESD objective or make it a runtime
-dependency.
+existing legacy SPEED closed-form edit. The required SD training mechanics are
+implemented in this repository; keep the prototype independent of the removed
+external reference tree and do not introduce the ESD objective.
 
 Preserve the legacy method's forward equation, including its dense
 target-anchor statistic, retain projector `P`, matrix `M`, four-vector null
@@ -36,28 +36,24 @@ anchor embedding
 Freeze the original U-Net and text encoder. Optimize only one anchor embedding
 per target, or equivalently one residual per target.
 
-## How to use `erasing-main`
+## Local SD training boundary
 
-Use the Stable Diffusion path in `erasing-main/utils/esd_trainer.py` as the
-reference for:
+Use the local SD training and legacy editor modules as the reference for:
 
-- `ESDConfig` structure and SD pipeline setup;
+- SD pipeline setup and configuration;
 - prompt encoding and frozen text/VAE setup;
 - sampling \(x_t\) by running a random prefix of the frozen denoising process;
 - the SD U-Net calling convention; and
 - name-based parameter discovery and metadata-rich checkpoint conventions.
 
-The ESD negative-guidance target in
-`StableDiffusionESDAdapter.training_step` is explicitly out of scope. The
-research objective instead compares base and edited target-conditioned noise
-predictions using cosine similarity.
+The ESD negative-guidance target is explicitly out of scope. The research
+objective instead compares base and edited target-conditioned noise predictions
+using cosine similarity.
 
-Do not copy `PreparedComponent.use_base()` / `.use_student()` into the
-differentiable path. Those methods swap leaf `Parameter` objects for ordinary
-ESD fine-tuning. The new student weights are non-leaf tensors computed from
-the anchor, so execute them with `torch.func.functional_call` and leave the
-base U-Net untouched. Limit the prototype to SD v1.4 and
-`attn2.to_v.weight`; the SDXL and FLUX adapters are out of scope.
+The new student weights are non-leaf tensors computed from the anchor, so
+execute them with `torch.func.functional_call` and leave the base U-Net
+untouched. Limit the prototype to SD v1.4 and `attn2.to_v.weight`; other model
+families and parameter subsets are out of scope.
 
 ## Exact legacy equation to preserve
 
@@ -214,9 +210,9 @@ effective_weight.detach()
 They disconnect the predicted-noise loss from the anchor.
 
 After selecting the best anchor, save both the anchor/configuration artifact
-and a materialized legacy SPEED U-Net checkpoint. The metadata pattern in
-`erasing-main/utils/esd_checkpoint.py` is reusable, but use a SPEED-specific
-format identifier rather than `erasing-esd-v2`.
+and a materialized legacy SPEED U-Net checkpoint. Reuse the local checkpoint
+metadata implementation, but use a SPEED-specific format identifier rather
+than `erasing-esd-v2`.
 
 ## Loss decisions
 
@@ -379,8 +375,7 @@ formula in the minimal prototype.
 5. Verify the base U-Net receives no gradients while the anchor does.
 6. Extend to all selected value-projection layers.
 7. Implement and independently test the per-example target-conditioned cosine
-   objective; reuse only the necessary SD state-sampling mechanics from
-   `erasing-main`.
+   objective using the local frozen SD state-sampling mechanics.
 8. Add one-target anchor optimization against the cosine objective.
 9. Extend the anchor tensor and loss accounting to many targets.
 10. Detach the best anchor and generate a normal legacy SPEED checkpoint.
@@ -435,5 +430,5 @@ concept erasure.
 ## Workspace caution
 
 Inspect `git status` before editing. Preserve existing user changes. Treat
-`erasing-main/` as vendored context: do not modify or import it from production
-code unless the task scope is explicitly expanded.
+the removed external reference tree as unavailable. The production path must
+use the repository's local `src/`, trainer, sampler, and checkpoint modules.

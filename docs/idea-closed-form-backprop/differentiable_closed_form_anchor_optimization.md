@@ -8,11 +8,10 @@ whether an anchor optimized through the actual SPEED edit can produce a better
 erasure-preservation trade-off than a manually selected anchor or an anchor
 learned independently of the edit.
 
-The vendored `erasing-main/` tree is the implementation reference for the
-predicted-noise training loop, model-family adapters, parameter selection, and
-checkpoint conventions. It is context code, not a runtime dependency: the new
-SPEED implementation belongs in this repository's `src/` and should port only
-the small pieces it needs.
+The former vendored reference tree has been removed after the required
+mechanics were ported. The predicted-noise training loop, parameter selection,
+and checkpoint conventions now live in this repository's `src/` and trainer
+modules; the new SPEED implementation is self-contained.
 
 ## Summary
 
@@ -84,13 +83,10 @@ regularization, and dense target-anchor statistic. The only intended
 algorithmic change is to make the anchor learnable through that equation. It
 should support one target before extending to multiple targets.
 
-The prototype should mirror the SD path in
-`erasing-main/utils/esd_trainer.py`, not its SDXL or FLUX adapters. Those
-adapters demonstrate a useful family boundary, but generalizing SPEED beyond
-SD v1.4 is explicitly deferred. Likewise, `esd-x`, `esd-u`, `esd-all`, and
-`selfattn` are ESD parameter-training modes; they are not new SPEED modes. The
-first experiment remains equivalent to the strict value-projection subset:
-only `attn2.to_v.weight` is overridden.
+The prototype uses the local SD v1.4 training path and does not generalize
+SPEED beyond that model family. Other parameter-training modes are out of
+scope; the first experiment remains equivalent to the strict value-projection
+subset, so only `attn2.to_v.weight` is overridden.
 
 The first prototype does not attempt to differentiate through hard retain-set
 filtering, threshold-based rank selection, top-k residual selection, or
@@ -105,31 +101,21 @@ preserved, the selected edit family may have no exact solution. The experiment
 instead searches for the best feasible trade-off under an explicit erasure
 requirement.
 
-## What to reuse from `erasing-main`
+## Local implementation boundaries
 
-The reference implementation provides four useful seams:
+The required mechanics are implemented locally behind four small seams:
 
-| Reference code | Reuse in this proposal | Do not copy unchanged |
+| Local code | Role | Constraint |
 |---|---|---|
-| `ESDConfig` and `StableDiffusionESDAdapter.prepare_context` | Configuration structure, prompt encoding, resolution handling, and frozen text/VAE setup | Objective-specific ESD fields or the multi-family surface before the SD prototype works |
-| `StableDiffusionESDAdapter.training_step` and `esd_sd_call` | Random partial-denoising state construction and the SD U-Net calling convention | The ESD target equation or `PreparedComponent.use_base()` / `use_student()` mutation |
-| `select_parameter_names` | Name-based discovery and validation of edited projection weights | ESD's broad trainable-parameter modes |
-| `save_esd_checkpoint` metadata pattern | A metadata-rich partial state dictionary | Saving learnable ESD student weights as though they were SPEED weights |
+| `train_closed_form_backprop.py` | CLI precedence, validation, and SD orchestration | Single-target SD v1.4 prototype |
+| `src/closed_form_anchor_training.py` | Frozen denoising-state preparation, cosine objective, and anchor-only optimization | No ESD negative-guidance objective |
+| `src/differentiable_legacy_edit.py` | Exact dense SPEED equation, projector geometry, and graph-connected overrides | Override only `attn2.to_v.weight` |
+| `src/edit_checkpoint.py` | SPEED-specific partial checkpoint save/load and validation | Do not label artifacts as ESD checkpoints |
 
-The reference training step shows how to generate \(x_t\) by running a random
-prefix of the denoising trajectory and how to call the SD U-Net at that state.
-Those mechanics may be reused by the configured objective. The ESD
-negative-guidance target is not part of this proposal and must not be adopted
-implicitly. The new method replaces ESD's independently trained student
-parameters with graph-connected effective SPEED weights.
-
-The reference `PreparedComponent` swaps `Parameter` objects into the live
-module. That is appropriate for ordinary ESD fine-tuning, but it is the wrong
-abstraction for this method: the optimized object is the anchor residual, and
-the effective weights are non-leaf tensors created from it. Use a stateless
-functional call (or a narrow functional-linear adapter) for the student
-forward. Keep the base U-Net structurally unchanged for teacher inference and
-checkpoint reproducibility.
+The optimized object is the continuous anchor; effective weights are non-leaf
+tensors created from it. Use a stateless functional call for the edited
+forward, and keep the base U-Net structurally unchanged for teacher inference
+and checkpoint reproducibility.
 
 ## Notation
 
@@ -514,9 +500,9 @@ training configuration
     -> anchor-only optimizer
 ```
 
-The context layer may follow `ESDConfig` fields such as `base_model_id`,
-`erase_concept`, `num_inference_steps`, `guidance_scale`, `batch_size`,
-`resolution`, `device`, and `torch_dtype`.
+The context layer uses fields such as `base_model_id`, `erase_concept`,
+`num_inference_steps`, `guidance_scale`, `batch_size`, `resolution`, `device`,
+and `torch_dtype`.
 SPEED-specific fields such as `retain_path`, `retain_scale`, `threshold`,
 `lamb`, `aug_num`, `params`, and projector policy remain separate and keep
 their established names.
@@ -528,11 +514,10 @@ only these effective weights; all other parameters and buffers come from the
 frozen U-Net. Do not wrap an effective tensor in `torch.nn.Parameter`, because
 that makes a new leaf and severs its construction graph.
 
-Unlike `PreparedComponent.use_base()` and `.use_student()`, base-reference and
-edited execution must not alternate by mutating module attributes. Run any
-frozen reference calls normally under `torch.no_grad()`, then run the edited
-model through the functional override. This also prevents an exception between
-swaps from leaving the U-Net in the wrong state.
+Base-reference and edited execution must not alternate by mutating module
+attributes. Run frozen reference calls normally under `torch.no_grad()`, then
+run the edited model through the functional override. This also prevents an
+exception between swaps from leaving the U-Net in the wrong state.
 
 The existing checkpoint-producing `edit_model` path should remain unchanged
 for reproducibility. In the initial `aug_num=0` experiment, detach the best
@@ -549,11 +534,10 @@ Save two artifacts:
 2. the ordinary edited U-Net state dictionary produced by the legacy SPEED
    path.
 
-The metadata style in `erasing-main/utils/esd_checkpoint.py` is a useful
-model, but the format identifier must be SPEED-specific. Do not label the
-checkpoint `erasing-esd-v2`: an ESD checkpoint stores independently trained
-parameters, whereas this artifact stores weights materialized from a
-closed-form edit.
+The local checkpoint module carries the metadata and a SPEED-specific format
+identifier. Do not label the checkpoint `erasing-esd-v2`: an ESD checkpoint
+stores independently trained parameters, whereas this artifact stores weights
+materialized from a closed-form edit.
 
 ## Proposed CLI usage
 

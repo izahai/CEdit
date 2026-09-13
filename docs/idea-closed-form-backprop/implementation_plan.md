@@ -9,8 +9,9 @@ evaluation before extending to multiple targets.
 
 This plan follows [the handoff](HANDOFF.md) and
 [the research proposal](differentiable_closed_form_anchor_optimization.md).
-Repository observations below refer to the current working tree, including
-the local `erasing-main/` reference tree.
+Repository observations below refer to the current working tree. The former
+vendored reference tree has been removed; the local implementation is the
+source of truth.
 
 ## 1. Fixed scope
 
@@ -24,7 +25,7 @@ the local `erasing-main/` reference tree.
 - Start with one non-nudity target and a legacy text anchor, including the
   empty prompt. Reject the special all-token nudity path in this prototype.
 - Leave the existing `train_erase_null.py::edit_model` implementation intact.
-  Do not modify or import `erasing-main/` from production code.
+  Keep the new implementation independent of the legacy editor's runtime path.
 - Defer low-rank algebra, alternative objectives, projector refresh,
   `aug_num=10`, SDXL/FLUX, input-token learning, and layer-specific anchors.
 
@@ -175,9 +176,8 @@ must not be the training default.
 scaled once by `residual_scale`. Log both norms. A value such as `1.0` is an
 initial experimental setting, not a demonstrated appropriate CLIP-space bound.
 
-Port only the needed random-prefix sampling mechanics from
-`erasing-main/utils/esd_trainer.py` and `utils/sd_utils.py` into the local
-trainer. Use a frozen-base trajectory, no ESD negative-guidance target:
+Use the local random-prefix sampling mechanics in the trainer. Use a
+frozen-base trajectory with no ESD negative-guidance target:
 
 1. Encode and cache full target-prompt and null hidden states under no-grad.
 2. Reset the scheduler for each trajectory, sample seeded initial latents,
