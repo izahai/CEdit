@@ -8,7 +8,10 @@ from src.differentiable_legacy_edit import (
     prepare_differentiable_legacy_edit,
     select_value_parameter_names,
 )
-from train_erase_null import build_target_anchor_statistics
+try:
+    from train_erase_null import build_target_anchor_statistics
+except ModuleNotFoundError:
+    build_target_anchor_statistics = None
 
 
 class _Attention(torch.nn.Module):
@@ -71,6 +74,8 @@ def _prepared_state(dtype=torch.float64):
 
 class DifferentiableLegacyEditTests(unittest.TestCase):
     def test_statistics_match_existing_legacy_helper(self):
+        if build_target_anchor_statistics is None:
+            self.skipTest("train_erase_null dependencies (kmeans_pytorch) not installed")
         torch.manual_seed(2)
         targets = torch.randn(3, 1, 5, dtype=torch.float64)
         anchors = torch.randn(3, 1, 5, dtype=torch.float64)
@@ -133,6 +138,53 @@ class DifferentiableLegacyEditTests(unittest.TestCase):
             dict(unet.named_parameters())["block.attn2.to_v.weight"],
             rtol=0,
             atol=0,
+        )
+
+    def test_effective_weight_without_k2(self):
+        dimension = 6
+        torch.manual_seed(7)
+        unet = _ToyUNet(dimension).to(dtype=torch.float64)
+        targets = torch.randn(2, 1, dimension, dtype=torch.float64)
+        retains = torch.zeros(5, 1, dimension, dtype=torch.float64)
+        config = DifferentiableLegacyEditConfig(
+            residual_scale=0.7,
+            retain_scale=1.3,
+            threshold=0.1,
+            lamb=0.0,
+            chunk_size=2,
+            use_k2=False,
+        )
+        state = prepare_differentiable_legacy_edit(
+            unet,
+            targets,
+            retains,
+            null_hidden_states=None,
+            config=config,
+        )
+        self.assertIsNone(state.k2)
+        self.assertIsNone(state.inner_inverse)
+        self.assertFalse(state.geometry_metadata()["use_k2"])
+        self.assertIsNone(state.geometry_metadata()["k2_sha256"])
+
+        anchors = targets + torch.randn_like(targets) * 0.2
+        overrides, diagnostics = state.effective_parameters(anchors)
+        _, target_anchor_delta = build_legacy_target_anchor_statistics(
+            targets,
+            anchors,
+            state.config.residual_scale,
+        )
+        base_weight = dict(unet.named_parameters())["block.attn2.to_v.weight"]
+        expected_delta = (
+            base_weight
+            @ target_anchor_delta
+            @ state.retain_projector
+            @ state.matrix_m
+        )
+        torch.testing.assert_close(
+            overrides["block.attn2.to_v.weight"],
+            base_weight + expected_delta,
+            rtol=1e-8,
+            atol=1e-10,
         )
 
     def test_dense_equation_passes_gradcheck(self):

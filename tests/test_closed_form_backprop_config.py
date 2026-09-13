@@ -94,6 +94,7 @@ class ClosedFormBackpropConfigTests(unittest.TestCase):
                 "anchor_steps: 2.5",
                 "seed: 'zero'",
                 "erase_style: 'false'",
+                "use_k2: 'true'",
                 "validation_seed: 0",
             ):
                 with self.subTest(bad_field=bad_field):
@@ -104,6 +105,30 @@ class ClosedFormBackpropConfigTests(unittest.TestCase):
                             ["--config", str(config)] + self._required()
                         )
                         validate_args(parser, args)
+
+    def test_use_k2_cli_and_yaml(self):
+        # Default is True
+        parser, args = parse_args(self._required())
+        validate_args(parser, args)
+        self.assertTrue(args.use_k2)
+
+        # Explicit --no-use_k2
+        parser, args = parse_args(self._required() + ["--no-use_k2"])
+        validate_args(parser, args)
+        self.assertFalse(args.use_k2)
+
+        # Explicit --use_k2
+        parser, args = parse_args(self._required() + ["--use_k2"])
+        validate_args(parser, args)
+        self.assertTrue(args.use_k2)
+
+        # Via YAML config
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config = Path(temp_dir) / "config.yaml"
+            config.write_text("use_k2: false\n", encoding="utf-8")
+            parser, args = parse_args(["--config", str(config)] + self._required())
+            validate_args(parser, args)
+            self.assertFalse(args.use_k2)
 
 
 if __name__ == "__main__":

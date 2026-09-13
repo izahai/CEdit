@@ -64,6 +64,15 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--retain_scale", type=float, default=1.0)
     parser.add_argument("--residual_scale", type=float, default=1.0)
     parser.add_argument("--lamb", type=float, default=0.0)
+    parser.add_argument(
+        "--use_k2",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Include the K2 null-prompt invariant constraint (legacy SPEED). "
+            "If False, only use closed-form with retain projection matrix."
+        ),
+    )
 
     parser.add_argument("--anchor_steps", type=int, default=200)
     parser.add_argument("--anchor_lr", type=float, default=1e-2)
@@ -164,6 +173,8 @@ def validate_args(
         parser.error("anchor_concepts must contain one anchor per target")
     if not isinstance(args.erase_style, bool):
         parser.error("--erase_style must be a boolean")
+    if not isinstance(args.use_k2, bool):
+        parser.error("--use_k2 must be a boolean")
     if not isinstance(args.heads, str) or not args.heads.strip():
         parser.error("--heads must be a non-empty string")
     if not isinstance(args.device, str) or not args.device.strip():
@@ -509,7 +520,11 @@ def save_anchor_artifact(
         "target_embeddings": edit_state.target_embeddings.detach().cpu().contiguous(),
         "sum_target_target": edit_state.sum_target_target.detach().cpu().contiguous(),
         "retain_projector": edit_state.retain_projector.detach().cpu().contiguous(),
-        "k2": edit_state.k2.detach().cpu().contiguous(),
+        "k2": (
+            edit_state.k2.detach().cpu().contiguous()
+            if edit_state.k2 is not None
+            else None
+        ),
         "input_hashes": {
             "retain_path": _sha256(args.retain_path),
             "optimization_prompts_path": (
@@ -609,12 +624,13 @@ def main(argv=None) -> None:
         threshold=args.threshold,
         lamb=args.lamb,
         seed=args.seed,
+        use_k2=args.use_k2,
     )
     edit_state = prepare_differentiable_legacy_edit(
         pipe.unet,
         target_embeddings,
         retain_embeddings,
-        null_hidden,
+        null_hidden if args.use_k2 else None,
         edit_config,
         retain_permutation=retain_permutation,
     )

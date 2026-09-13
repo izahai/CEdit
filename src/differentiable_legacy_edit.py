@@ -24,8 +24,11 @@ class DifferentiableLegacyEditConfig:
     lamb: float = 0.0
     chunk_size: int = 128
     seed: int = 0
+    use_k2: bool = True
 
     def validate(self) -> None:
+        if not isinstance(self.use_k2, bool):
+            raise TypeError(f"use_k2 must be a boolean, got {type(self.use_k2).__name__}")
         values = {
             "residual_scale": self.residual_scale,
             "retain_scale": self.retain_scale,
@@ -206,9 +209,9 @@ class DifferentiableLegacyEditState:
         retain_covariance: torch.Tensor,
         retain_projector: torch.Tensor,
         retain_singular_values: torch.Tensor,
-        k2: torch.Tensor,
+        k2: torch.Tensor | None,
         matrix_m: torch.Tensor,
-        inner_inverse: torch.Tensor,
+        inner_inverse: torch.Tensor | None,
         base_weights: Mapping[str, torch.Tensor],
         config: DifferentiableLegacyEditConfig,
     ) -> None:
@@ -217,9 +220,11 @@ class DifferentiableLegacyEditState:
         self.retain_covariance = retain_covariance.detach().clone()
         self.retain_projector = retain_projector.detach().clone()
         self.retain_singular_values = retain_singular_values.detach().clone()
-        self.k2 = k2.detach().clone()
+        self.k2 = k2.detach().clone() if k2 is not None else None
         self.matrix_m = matrix_m.detach().clone()
-        self.inner_inverse = inner_inverse.detach().clone()
+        self.inner_inverse = (
+            inner_inverse.detach().clone() if inner_inverse is not None else None
+        )
         self.base_weights = {
             name: weight.detach().clone() for name, weight in base_weights.items()
         }
@@ -252,26 +257,39 @@ class DifferentiableLegacyEditState:
             residual_scale=self.config.residual_scale,
         )
         dimension = targets.shape[-1]
-        identity = torch.eye(dimension, device=targets.device, dtype=targets.dtype)
-        correction = (
-            identity
-            - self.matrix_m
-            @ self.k2
-            @ self.inner_inverse
-            @ self.k2.T
-            @ self.retain_projector
-        )
+        if self.config.use_k2:
+            if self.k2 is None or self.inner_inverse is None:
+                raise RuntimeError("k2 and inner_inverse are required when use_k2 is True")
+            identity = torch.eye(dimension, device=targets.device, dtype=targets.dtype)
+            correction = (
+                identity
+                - self.matrix_m
+                @ self.k2
+                @ self.inner_inverse
+                @ self.k2.T
+                @ self.retain_projector
+            )
+        else:
+            correction = None
 
         overrides: dict[str, torch.Tensor] = {}
         update_norms: dict[str, float] = {}
         for name, base_weight in self.base_weights.items():
-            delta_weight = (
-                base_weight
-                @ target_anchor_delta
-                @ self.retain_projector
-                @ correction
-                @ self.matrix_m
-            )
+            if self.config.use_k2:
+                delta_weight = (
+                    base_weight
+                    @ target_anchor_delta
+                    @ self.retain_projector
+                    @ correction
+                    @ self.matrix_m
+                )
+            else:
+                delta_weight = (
+                    base_weight
+                    @ target_anchor_delta
+                    @ self.retain_projector
+                    @ self.matrix_m
+                )
             effective_weight = base_weight + delta_weight
             if not torch.isfinite(effective_weight).all().item():
                 raise FloatingPointError(f"Effective weight is non-finite for {name}")
@@ -310,6 +328,7 @@ class DifferentiableLegacyEditState:
 
     def geometry_metadata(self) -> dict[str, object]:
         return {
+            "use_k2": self.config.use_k2,
             "projector_rank": self.projector_rank,
             "target_count": int(self.target_embeddings.shape[0]),
             "embedding_dimension": int(self.target_embeddings.shape[-1]),
@@ -318,7 +337,7 @@ class DifferentiableLegacyEditState:
             "sum_target_target_sha256": _tensor_fingerprint(self.sum_target_target),
             "retain_covariance_sha256": _tensor_fingerprint(self.retain_covariance),
             "retain_projector_sha256": _tensor_fingerprint(self.retain_projector),
-            "k2_sha256": _tensor_fingerprint(self.k2),
+            "k2_sha256": _tensor_fingerprint(self.k2) if self.k2 is not None else None,
         }
 
 
@@ -338,8 +357,8 @@ def prepare_differentiable_legacy_edit(
     base_unet: torch.nn.Module,
     target_embeddings: torch.Tensor | Sequence[torch.Tensor],
     retain_embeddings: torch.Tensor | Sequence[torch.Tensor],
-    null_hidden_states: torch.Tensor,
-    config: DifferentiableLegacyEditConfig,
+    null_hidden_states: torch.Tensor | None = None,
+    config: DifferentiableLegacyEditConfig = DifferentiableLegacyEditConfig(),
     *,
     prepared_k2: torch.Tensor | None = None,
     retain_permutation: torch.Tensor | None = None,
@@ -383,27 +402,34 @@ def prepare_differentiable_legacy_edit(
         config.threshold,
     )
 
-    if prepared_k2 is None:
-        k2 = build_k2(null_hidden_states, seed=config.seed)
-    else:
-        k2 = prepared_k2
-    if k2.ndim != 2 or k2.shape != (dimension, 4):
-        raise ValueError(f"K2 must have shape [{dimension}, 4], got {tuple(k2.shape)}")
-    if k2.device != targets.device or k2.dtype != targets.dtype:
-        raise ValueError("K2 must share target device and dtype")
-    if not torch.isfinite(k2).all().item():
-        raise ValueError("K2 contains non-finite values")
-
     identity = torch.eye(dimension, device=targets.device, dtype=targets.dtype)
     matrix_m = _inverse(
         sum_target_target @ retain_projector + config.retain_scale * identity,
         "C @ P + retain_scale * I",
     )
-    identity2 = torch.eye(4, device=targets.device, dtype=targets.dtype)
-    inner_inverse = _inverse(
-        k2.T @ retain_projector @ matrix_m @ k2 + config.lamb * identity2,
-        "K2.T @ P @ M @ K2 + lamb * I2",
-    )
+
+    if config.use_k2:
+        if prepared_k2 is None:
+            if null_hidden_states is None:
+                raise ValueError("null_hidden_states is required when use_k2 is True")
+            k2 = build_k2(null_hidden_states, seed=config.seed)
+        else:
+            k2 = prepared_k2
+        if k2.ndim != 2 or k2.shape != (dimension, 4):
+            raise ValueError(f"K2 must have shape [{dimension}, 4], got {tuple(k2.shape)}")
+        if k2.device != targets.device or k2.dtype != targets.dtype:
+            raise ValueError("K2 must share target device and dtype")
+        if not torch.isfinite(k2).all().item():
+            raise ValueError("K2 contains non-finite values")
+
+        identity2 = torch.eye(4, device=targets.device, dtype=targets.dtype)
+        inner_inverse = _inverse(
+            k2.T @ retain_projector @ matrix_m @ k2 + config.lamb * identity2,
+            "K2.T @ P @ M @ K2 + lamb * I2",
+        )
+    else:
+        k2 = None
+        inner_inverse = None
 
     return DifferentiableLegacyEditState(
         target_embeddings=targets,

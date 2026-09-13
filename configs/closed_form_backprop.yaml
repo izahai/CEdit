@@ -19,6 +19,7 @@ threshold: 0.031670106575
 retain_scale: 1.0
 residual_scale: 1.0
 lamb: 0.0
+use_k2: false
 
 anchor_steps: 200
 anchor_lr: 0.01
