@@ -1,0 +1,43 @@
+experiment_name: celebrity_rank_analysis_pilot
+sd_ckpt: CompVis/stable-diffusion-v1-4
+
+dataset:
+  path: data/100_celebrity.csv
+  concept_column: concept
+  target_split: erase
+  common_anchor: person
+  subspace_anchors: ["", person]
+
+runtime:
+  device: cuda
+  model_dtype: float32
+  batch_size: 128
+  seed: 0
+
+part_a:
+  enabled: true
+  target_counts: [5, 20, 50, 100]
+  subset_seeds: [0]
+  tgprs_ranks: [5, 10, 30]
+  numerical_rank_rtol: 1.0e-5
+
+part_b:
+  enabled: true
+  target_count: 100
+  target_seed: 0
+  ranks: [5, 10, 30]
+  random_seeds: [0]
+  retain_scales: [0.01, 0.05, 0.1, 0.5, 1.0]
+  numerical_rank_rtol: 1.0e-5
+  compute_delta_spectrum: false
+
+retain:
+  path: data/100_celebrity.csv
+  columns: [concept]
+  split: retain
+  threshold: 0.1
+  aug_num: 0
+  lamb: 0.0
+
+output:
+  root: logs/rank_analysis

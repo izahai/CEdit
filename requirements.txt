@@ -5,6 +5,7 @@ kmeans_pytorch==0.3
 nudenet==3.4.2
 accelerate
 pandas
+matplotlib
 tqdm
 einops
 prettytable
