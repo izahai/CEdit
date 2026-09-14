@@ -60,6 +60,7 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--aug_num", type=int, default=0)
     parser.add_argument("--erase_style", action="store_true", default=False)
 
+    parser.add_argument("--retain_projection_rank", type=int, default=None)
     parser.add_argument("--threshold", type=float, default=0.1)
     parser.add_argument("--retain_scale", type=float, default=1.0)
     parser.add_argument("--residual_scale", type=float, default=1.0)
@@ -71,6 +72,15 @@ def build_argument_parser() -> argparse.ArgumentParser:
         help=(
             "Include the K2 null-prompt invariant constraint (legacy SPEED). "
             "If False, only use closed-form with retain projection matrix."
+        ),
+    )
+    parser.add_argument(
+        "--use_null_retain_loss",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help=(
+            "Maximize edited-to-base null-prompt predicted-noise cosine alongside "
+            "the target erasure loss."
         ),
     )
 
@@ -175,6 +185,8 @@ def validate_args(
         parser.error("--erase_style must be a boolean")
     if not isinstance(args.use_k2, bool):
         parser.error("--use_k2 must be a boolean")
+    if not isinstance(args.use_null_retain_loss, bool):
+        parser.error("--use_null_retain_loss must be a boolean")
     if not isinstance(args.heads, str) or not args.heads.strip():
         parser.error("--heads must be a non-empty string")
     if not isinstance(args.device, str) or not args.device.strip():
@@ -218,6 +230,12 @@ def validate_args(
         or not math.isfinite(args.threshold)
     ):
         parser.error("--threshold must be finite")
+    if args.retain_projection_rank is not None and (
+        isinstance(args.retain_projection_rank, bool)
+        or not isinstance(args.retain_projection_rank, int)
+        or args.retain_projection_rank < 0
+    ):
+        parser.error("--retain_projection_rank must be a nonnegative integer")
     if (
         isinstance(args.lamb, bool)
         or not isinstance(args.lamb, (int, float))
@@ -487,6 +505,8 @@ def save_anchor_artifact(
     history: Sequence[dict],
     best_step: int | None,
     best_validation_cosine: float | None,
+    best_validation_loss: float | None,
+    best_validation_null_cosine: float | None,
     runtime_metadata: dict[str, object] | None = None,
     export_parity: dict[str, object] | None = None,
     error: str | None = None,
@@ -500,6 +520,8 @@ def save_anchor_artifact(
         "anchor_concepts": list(anchors),
         "best_step": best_step,
         "best_validation_cosine": best_validation_cosine,
+        "best_validation_loss": best_validation_loss,
+        "best_validation_null_cosine": best_validation_null_cosine,
         "resolved_config": vars(args),
         "runtime_metadata": runtime_metadata or {},
         "export_parity": export_parity or {},
@@ -621,6 +643,7 @@ def main(argv=None) -> None:
     edit_config = DifferentiableLegacyEditConfig(
         residual_scale=args.residual_scale,
         retain_scale=args.retain_scale,
+        retain_projection_rank=args.retain_projection_rank,
         threshold=args.threshold,
         lamb=args.lamb,
         seed=args.seed,
@@ -722,6 +745,7 @@ def main(argv=None) -> None:
                 learning_rate=args.anchor_lr,
                 validation_interval=args.validation_interval,
                 cosine_eps=args.cosine_eps,
+                use_null_retain_loss=args.use_null_retain_loss,
             ),
             retain_validation_states=retain_validation_states,
             metrics_callback=write_metrics,
@@ -776,13 +800,16 @@ def main(argv=None) -> None:
             history=history,
             best_step=result.best_step,
             best_validation_cosine=result.best_validation_cosine,
+            best_validation_loss=result.best_validation_loss,
+            best_validation_null_cosine=result.best_validation_null_cosine,
             runtime_metadata=runtime_metadata,
             export_parity=export_parity,
         )
         print(
             f"Saved {checkpoint_path} and {save_path / 'anchor_optimization.pt'} "
             f"(best step {result.best_step}, validation cosine "
-            f"{result.best_validation_cosine:.6f})"
+            f"{result.best_validation_cosine:.6f}, validation loss "
+            f"{result.best_validation_loss:.6f})"
         )
     except Exception as error:
         anchor_model.load_state_dict(last_valid_raw_state, strict=False)
@@ -798,6 +825,12 @@ def main(argv=None) -> None:
             best_step=result.best_step if result is not None else None,
             best_validation_cosine=(
                 result.best_validation_cosine if result is not None else None
+            ),
+            best_validation_loss=(
+                result.best_validation_loss if result is not None else None
+            ),
+            best_validation_null_cosine=(
+                result.best_validation_null_cosine if result is not None else None
             ),
             runtime_metadata=runtime_metadata,
             export_parity=export_parity,

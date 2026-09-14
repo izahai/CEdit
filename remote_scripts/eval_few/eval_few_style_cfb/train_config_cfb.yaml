@@ -1,43 +1,36 @@
-# Stable Diffusion v1.4 differentiable legacy SPEED prototype.
+# Closed-Form Backprop style-erasure benchmark configuration.
 sd_ckpt: CompVis/stable-diffusion-v1-4
 device: cuda
 seed: 0
 
-target_concepts:
-  - Snoopy
-anchor_concepts:
-  - ""
-retain_path: data/instance.csv
 heads: concept
 baseline: SPEED
 params: V
 anchor_mode: legacy
 aug_num: 0
-erase_style: false
+erase_style: true
 
-# Fixed rank overrides threshold when set.
-retain_projection_rank: 1
-threshold: 0.031670106575
-retain_scale: 1.0
+retain_projection_rank: 200
+threshold: 0.1
+retain_scale: 100.0
 residual_scale: 1.0
 lamb: 0.0
 use_k2: false
 use_null_retain_loss: true
 
-anchor_steps: 200
+anchor_steps: 20
 anchor_lr: 0.01
 anchor_batch_size: 1
-# Cap anchor norm at the target embedding norm; clipped text anchors start at 95%.
 max_anchor_norm: target
 cosine_eps: 1.0e-8
 num_inference_steps: 50
 guidance_scale: 3.0
 resolution: 512
+
 validation_seed: 10000
 validation_samples: 1
 validation_interval: 9999
 optimization_prompts_path: null
 validation_prompts_path: null
 
-save_path: logs/closed_form_backprop/snoopy
 file_name: weight

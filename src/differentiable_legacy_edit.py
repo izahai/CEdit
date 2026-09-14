@@ -25,6 +25,7 @@ class DifferentiableLegacyEditConfig:
     chunk_size: int = 128
     seed: int = 0
     use_k2: bool = True
+    retain_projection_rank: int | None = None
 
     def validate(self) -> None:
         if not isinstance(self.use_k2, bool):
@@ -42,6 +43,12 @@ class DifferentiableLegacyEditConfig:
             raise ValueError("residual_scale must be positive")
         if self.retain_scale <= 0:
             raise ValueError("retain_scale must be positive")
+        if self.retain_projection_rank is not None and (
+            isinstance(self.retain_projection_rank, bool)
+            or not isinstance(self.retain_projection_rank, int)
+            or self.retain_projection_rank < 0
+        ):
+            raise ValueError("retain_projection_rank must be a nonnegative integer")
         if self.lamb < 0:
             raise ValueError("lamb must be nonnegative")
         if self.chunk_size <= 0:
@@ -132,6 +139,7 @@ def build_retain_covariance(
 def build_retain_projector(
     retain_covariance: torch.Tensor,
     threshold: float,
+    retain_projection_rank: int | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     if retain_covariance.ndim != 2 or retain_covariance.shape[0] != retain_covariance.shape[1]:
         raise ValueError("retain_covariance must be square")
@@ -139,9 +147,26 @@ def build_retain_projector(
         raise ValueError("retain_covariance contains non-finite values")
     if not torch.isfinite(torch.tensor(float(threshold))).item():
         raise ValueError("threshold must be finite")
+    if retain_projection_rank is not None and (
+        isinstance(retain_projection_rank, bool)
+        or not isinstance(retain_projection_rank, int)
+        or retain_projection_rank < 0
+    ):
+        raise ValueError("retain_projection_rank must be a nonnegative integer")
+    dimension = retain_covariance.shape[0]
+    if retain_projection_rank is not None and retain_projection_rank > dimension:
+        raise ValueError(
+            "retain_projection_rank cannot exceed the retain covariance dimension "
+            f"{dimension}, got {retain_projection_rank}"
+        )
     left, singular_values, _ = torch.svd(retain_covariance)
-    low_mask = singular_values < threshold
-    projector = left[:, low_mask] @ left[:, low_mask].T
+    if retain_projection_rank is None:
+        basis = left[:, singular_values < threshold]
+    elif retain_projection_rank == 0:
+        basis = left[:, :0]
+    else:
+        basis = left[:, -retain_projection_rank:]
+    projector = basis @ basis.T
     return projector, singular_values
 
 
@@ -236,6 +261,8 @@ class DifferentiableLegacyEditState:
 
     @property
     def projector_rank(self) -> int:
+        if self.config.retain_projection_rank is not None:
+            return self.config.retain_projection_rank
         return int((self.retain_singular_values < self.config.threshold).sum().item())
 
     def effective_parameters(
@@ -400,6 +427,7 @@ def prepare_differentiable_legacy_edit(
     retain_projector, singular_values = build_retain_projector(
         retain_covariance,
         config.threshold,
+        config.retain_projection_rank,
     )
 
     identity = torch.eye(dimension, device=targets.device, dtype=targets.dtype)

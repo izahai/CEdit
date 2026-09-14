@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 
 import torch
 
@@ -8,8 +9,10 @@ from src.closed_form_anchor_training import (
     DiffusionState,
     optimize_anchor,
     paired_predictions,
+    prediction_objective,
     predicted_noise_cosine,
     sample_prefix_diffusion_state,
+    state_prediction_metrics,
 )
 
 
@@ -224,6 +227,112 @@ class ClosedFormAnchorTrainingTests(unittest.TestCase):
         self.assertTrue(all(parameter.grad is None for parameter in unet.parameters()))
         torch.testing.assert_close(base_prediction, edited_prediction)
 
+    def test_null_retain_objective_reuses_state_and_is_optional(self):
+        unet = _ToyUNet().eval()
+        unet.requires_grad_(False)
+        target_hidden = torch.ones(2, 2, 3)
+        null_hidden = torch.zeros(2, 2, 3)
+        state = DiffusionState(
+            model_input=torch.randn(2, 3),
+            timestep=torch.tensor(4),
+            target_hidden_states=target_hidden,
+            null_hidden_states=null_hidden,
+        )
+        base_weight = dict(unet.named_parameters())["block.attn2.to_v.weight"]
+        override = base_weight.detach().clone().requires_grad_(True)
+
+        metrics = state_prediction_metrics(
+            unet,
+            {"block.attn2.to_v.weight": override},
+            state,
+            1e-8,
+            use_null_retain_loss=True,
+        )
+
+        self.assertEqual(len(unet.calls), 4)
+        for sample, timestep, _ in unet.calls:
+            self.assertEqual(sample.data_ptr(), state.model_input.data_ptr())
+            self.assertEqual(timestep.data_ptr(), state.timestep.data_ptr())
+        self.assertIs(unet.calls[0][2], target_hidden)
+        self.assertIs(unet.calls[1][2], target_hidden)
+        self.assertIs(unet.calls[2][2], null_hidden)
+        self.assertIs(unet.calls[3][2], null_hidden)
+        torch.testing.assert_close(
+            metrics["loss"], metrics["cosine"] - metrics["null_cosine"]
+        )
+        torch.testing.assert_close(
+            prediction_objective(torch.tensor(0.25), torch.tensor(0.75)),
+            torch.tensor(-0.5),
+        )
+
+        unet.calls.clear()
+        disabled_metrics = state_prediction_metrics(
+            unet,
+            {"block.attn2.to_v.weight": override},
+            state,
+            1e-8,
+            use_null_retain_loss=False,
+        )
+        self.assertEqual(len(unet.calls), 2)
+        self.assertNotIn("null_cosine", disabled_metrics)
+        torch.testing.assert_close(
+            disabled_metrics["loss"], disabled_metrics["cosine"]
+        )
+
+    def test_null_retain_loss_selects_checkpoint_by_combined_validation(self):
+        torch.manual_seed(3)
+        unet = _ToyUNet().eval()
+        unet.requires_grad_(False)
+        target = torch.tensor([[[1.0, 0.0, 0.0]]])
+        anchor = BoundedAnchor(target, torch.tensor([[[0.3, 0.1, 0.0]]]))
+        state = DiffusionState(
+            model_input=torch.tensor([[1.0, 2.0, 3.0]]),
+            timestep=torch.tensor(1),
+            target_hidden_states=target,
+            null_hidden_states=torch.zeros_like(target),
+        )
+        initial_validation = {
+            "cosine": 0.2,
+            "prediction_norm_ratio": 1.0,
+            "mse": 0.0,
+            "null_cosine": 0.9,
+            "null_prediction_norm_ratio": 1.0,
+            "null_mse": 0.0,
+            "loss": -0.7,
+        }
+        final_validation = {
+            "cosine": 0.1,
+            "prediction_norm_ratio": 1.0,
+            "mse": 0.0,
+            "null_cosine": 0.1,
+            "null_prediction_norm_ratio": 1.0,
+            "null_mse": 0.0,
+            "loss": 0.0,
+        }
+
+        with mock.patch(
+            "src.closed_form_anchor_training.evaluate_anchor",
+            side_effect=[initial_validation, final_validation],
+        ):
+            result = optimize_anchor(
+                unet,
+                _NoOpEditState(unet),
+                anchor,
+                lambda: state,
+                [state],
+                AnchorTrainingConfig(
+                    steps=1,
+                    learning_rate=0.1,
+                    validation_interval=1,
+                    use_null_retain_loss=True,
+                ),
+            )
+
+        self.assertEqual(result.best_step, 0)
+        self.assertEqual(result.best_validation_cosine, 0.2)
+        self.assertEqual(result.best_validation_null_cosine, 0.9)
+        self.assertEqual(result.best_validation_loss, -0.7)
+
     def test_optimizer_keeps_earliest_candidate_on_validation_tie(self):
         torch.manual_seed(3)
         unet = _ToyUNet().eval()
@@ -298,6 +407,7 @@ class ClosedFormAnchorTrainingTests(unittest.TestCase):
         )
         self.assertEqual(first_pipe.unet.calls, 0)
         self.assertEqual(first.prefix_index, 0)
+        torch.testing.assert_close(first.null_hidden_states, null_hidden)
 
         second_pipe = _FakePipe()
         second = sample_prefix_diffusion_state(

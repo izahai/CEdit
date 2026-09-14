@@ -17,6 +17,7 @@ class DiffusionState:
     model_input: torch.Tensor
     timestep: torch.Tensor
     target_hidden_states: torch.Tensor
+    null_hidden_states: torch.Tensor | None = None
     prompt: str = ""
     prefix_index: int = 0
     seed: int = 0
@@ -29,6 +30,7 @@ class AnchorTrainingConfig:
     learning_rate: float
     validation_interval: int
     cosine_eps: float = 1e-8
+    use_null_retain_loss: bool = False
 
     def validate(self) -> None:
         if self.steps <= 0:
@@ -39,12 +41,16 @@ class AnchorTrainingConfig:
             raise ValueError("validation_interval must be positive")
         if self.cosine_eps <= 0 or not math.isfinite(self.cosine_eps):
             raise ValueError("cosine_eps must be positive and finite")
+        if not isinstance(self.use_null_retain_loss, bool):
+            raise ValueError("use_null_retain_loss must be a boolean")
 
 
 @dataclass
 class AnchorTrainingResult:
     best_step: int
     best_validation_cosine: float
+    best_validation_loss: float
+    best_validation_null_cosine: float | None
     best_raw_state: dict[str, torch.Tensor]
     history: list[dict[str, object]]
 
@@ -194,10 +200,14 @@ def paired_predictions(
     base_unet: torch.nn.Module,
     parameter_overrides: Mapping[str, torch.Tensor],
     state: DiffusionState,
+    *,
+    hidden_states: torch.Tensor | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     kwargs = dict(state.unet_kwargs)
     kwargs.update(
-        encoder_hidden_states=state.target_hidden_states,
+        encoder_hidden_states=(
+            state.target_hidden_states if hidden_states is None else hidden_states
+        ),
         return_dict=False,
     )
     with torch.no_grad():
@@ -233,6 +243,59 @@ def prediction_metrics(
     return {"cosine": cosine, "prediction_norm_ratio": ratio, "mse": mse}
 
 
+def prediction_objective(
+    target_cosine: torch.Tensor,
+    null_cosine: torch.Tensor | None = None,
+) -> torch.Tensor:
+    """Minimize target similarity and, when supplied, maximize null similarity."""
+
+    if null_cosine is None:
+        return target_cosine
+    return target_cosine - null_cosine
+
+
+def state_prediction_metrics(
+    base_unet: torch.nn.Module,
+    parameter_overrides: Mapping[str, torch.Tensor],
+    state: DiffusionState,
+    cosine_eps: float,
+    *,
+    use_null_retain_loss: bool,
+) -> dict[str, torch.Tensor]:
+    base_prediction, edited_prediction = paired_predictions(
+        base_unet, parameter_overrides, state
+    )
+    target_metrics = prediction_metrics(
+        base_prediction, edited_prediction, cosine_eps
+    )
+    metrics = dict(target_metrics)
+    null_cosine = None
+    if use_null_retain_loss:
+        if state.null_hidden_states is None:
+            raise ValueError(
+                "null_hidden_states is required when use_null_retain_loss is True"
+            )
+        base_null_prediction, edited_null_prediction = paired_predictions(
+            base_unet,
+            parameter_overrides,
+            state,
+            hidden_states=state.null_hidden_states,
+        )
+        null_metrics = prediction_metrics(
+            base_null_prediction,
+            edited_null_prediction,
+            cosine_eps,
+        )
+        null_cosine = null_metrics["cosine"]
+        metrics.update(
+            null_cosine=null_cosine,
+            null_prediction_norm_ratio=null_metrics["prediction_norm_ratio"],
+            null_mse=null_metrics["mse"],
+        )
+    metrics["loss"] = prediction_objective(target_metrics["cosine"], null_cosine)
+    return metrics
+
+
 @torch.no_grad()
 def evaluate_anchor(
     base_unet: torch.nn.Module,
@@ -240,16 +303,32 @@ def evaluate_anchor(
     anchor_embeddings: torch.Tensor,
     states: Sequence[DiffusionState],
     cosine_eps: float,
+    *,
+    use_null_retain_loss: bool = False,
 ) -> dict[str, float]:
     if not states:
         raise ValueError("Validation states must be non-empty")
     overrides, _ = edit_state.effective_parameters(anchor_embeddings)
-    totals = {"cosine": 0.0, "prediction_norm_ratio": 0.0, "mse": 0.0}
-    for state in states:
-        base_prediction, edited_prediction = paired_predictions(
-            base_unet, overrides, state
+    totals = {
+        "cosine": 0.0,
+        "prediction_norm_ratio": 0.0,
+        "mse": 0.0,
+        "loss": 0.0,
+    }
+    if use_null_retain_loss:
+        totals.update(
+            null_cosine=0.0,
+            null_prediction_norm_ratio=0.0,
+            null_mse=0.0,
         )
-        metrics = prediction_metrics(base_prediction, edited_prediction, cosine_eps)
+    for state in states:
+        metrics = state_prediction_metrics(
+            base_unet,
+            overrides,
+            state,
+            cosine_eps,
+            use_null_retain_loss=use_null_retain_loss,
+        )
         for name in totals:
             totals[name] += float(metrics[name].item())
     return {name: value / len(states) for name, value in totals.items()}
@@ -290,9 +369,12 @@ def optimize_anchor(
         anchor_model(),
         validation_states,
         config.cosine_eps,
+        use_null_retain_loss=config.use_null_retain_loss,
     )
     best_step = 0
     best_validation_cosine = initial_validation["cosine"]
+    best_validation_loss = initial_validation["loss"]
+    best_validation_null_cosine = initial_validation.get("null_cosine")
     best_raw_state = _snapshot(anchor_model)
     initial_record: dict[str, object] = {
         "step": 0,
@@ -301,8 +383,17 @@ def optimize_anchor(
             "prediction_norm_ratio"
         ],
         "validation_mse": initial_validation["mse"],
+        "validation_loss": initial_validation["loss"],
         **anchor_model.diagnostics(),
     }
+    if config.use_null_retain_loss:
+        initial_record.update(
+            validation_null_cosine=initial_validation["null_cosine"],
+            validation_null_prediction_norm_ratio=initial_validation[
+                "null_prediction_norm_ratio"
+            ],
+            validation_null_mse=initial_validation["null_mse"],
+        )
     if retain_validation_states:
         retain_metrics = evaluate_anchor(
             base_unet,
@@ -327,17 +418,14 @@ def optimize_anchor(
         anchors = anchor_model()
         overrides, edit_diagnostics = edit_state.effective_parameters(anchors)
         diffusion_state = training_state_factory()
-        base_prediction, edited_prediction = paired_predictions(
+        metrics = state_prediction_metrics(
             base_unet,
             overrides,
             diffusion_state,
-        )
-        metrics = prediction_metrics(
-            base_prediction,
-            edited_prediction,
             config.cosine_eps,
+            use_null_retain_loss=config.use_null_retain_loss,
         )
-        loss = metrics["cosine"]
+        loss = metrics["loss"]
         if not torch.isfinite(loss).item():
             raise FloatingPointError(f"Non-finite loss at step {step}")
         loss.backward()
@@ -363,6 +451,7 @@ def optimize_anchor(
                 metrics["prediction_norm_ratio"].detach().item()
             ),
             "training_mse": float(metrics["mse"].detach().item()),
+            "training_loss": float(loss.detach().item()),
             "gradient_norm": gradient_norm,
             "prompt": diffusion_state.prompt,
             "prefix_index": diffusion_state.prefix_index,
@@ -370,6 +459,14 @@ def optimize_anchor(
             **training_anchor_diagnostics,
             **edit_diagnostics,
         }
+        if config.use_null_retain_loss:
+            record.update(
+                training_null_cosine=float(metrics["null_cosine"].detach().item()),
+                training_null_prediction_norm_ratio=float(
+                    metrics["null_prediction_norm_ratio"].detach().item()
+                ),
+                training_null_mse=float(metrics["null_mse"].detach().item()),
+            )
 
         should_validate = step % config.validation_interval == 0 or step == config.steps
         if should_validate:
@@ -379,6 +476,7 @@ def optimize_anchor(
                 anchor_model(),
                 validation_states,
                 config.cosine_eps,
+                use_null_retain_loss=config.use_null_retain_loss,
             )
             record.update(
                 validation_cosine=validation["cosine"],
@@ -386,7 +484,16 @@ def optimize_anchor(
                     "prediction_norm_ratio"
                 ],
                 validation_mse=validation["mse"],
+                validation_loss=validation["loss"],
             )
+            if config.use_null_retain_loss:
+                record.update(
+                    validation_null_cosine=validation["null_cosine"],
+                    validation_null_prediction_norm_ratio=validation[
+                        "null_prediction_norm_ratio"
+                    ],
+                    validation_null_mse=validation["null_mse"],
+                )
             if retain_validation_states:
                 retain_metrics = evaluate_anchor(
                     base_unet,
@@ -402,8 +509,10 @@ def optimize_anchor(
                     ],
                     retain_validation_mse=retain_metrics["mse"],
                 )
-            if validation["cosine"] < best_validation_cosine:
+            if validation["loss"] < best_validation_loss:
+                best_validation_loss = validation["loss"]
                 best_validation_cosine = validation["cosine"]
+                best_validation_null_cosine = validation.get("null_cosine")
                 best_step = step
                 best_raw_state = _snapshot(anchor_model)
 
@@ -415,6 +524,8 @@ def optimize_anchor(
     return AnchorTrainingResult(
         best_step=best_step,
         best_validation_cosine=best_validation_cosine,
+        best_validation_loss=best_validation_loss,
+        best_validation_null_cosine=best_validation_null_cosine,
         best_raw_state=best_raw_state,
         history=history,
     )
@@ -493,6 +604,7 @@ def sample_prefix_diffusion_state(
         model_input=model_input.detach(),
         timestep=evaluation_timestep.detach().clone(),
         target_hidden_states=target_hidden_states.detach(),
+        null_hidden_states=null_hidden_states.detach(),
         prompt=prompt,
         prefix_index=prefix_index,
         seed=seed,

@@ -95,6 +95,10 @@ class ClosedFormBackpropConfigTests(unittest.TestCase):
                 "seed: 'zero'",
                 "erase_style: 'false'",
                 "use_k2: 'true'",
+                "use_null_retain_loss: 'true'",
+                "retain_projection_rank: true",
+                "retain_projection_rank: -1",
+                "retain_projection_rank: 2.5",
                 "validation_seed: 0",
             ):
                 with self.subTest(bad_field=bad_field):
@@ -105,6 +109,34 @@ class ClosedFormBackpropConfigTests(unittest.TestCase):
                             ["--config", str(config)] + self._required()
                         )
                         validate_args(parser, args)
+
+    def test_retain_projection_rank_yaml_null_and_cli_override(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config = Path(temp_dir) / "config.yaml"
+            config.write_text("retain_projection_rank: null\n", encoding="utf-8")
+            parser, args = parse_args(["--config", str(config)] + self._required())
+            validate_args(parser, args)
+            self.assertIsNone(args.retain_projection_rank)
+
+            config.write_text("retain_projection_rank: 3\n", encoding="utf-8")
+            parser, args = parse_args(["--config", str(config)] + self._required())
+            validate_args(parser, args)
+            self.assertEqual(args.retain_projection_rank, 3)
+
+            parser, args = parse_args(
+                ["--config", str(config)]
+                + self._required()
+                + ["--retain_projection_rank", "1"]
+            )
+            validate_args(parser, args)
+            self.assertEqual(args.retain_projection_rank, 1)
+
+    def test_retain_projection_rank_allows_zero(self):
+        parser, args = parse_args(
+            self._required() + ["--retain_projection_rank", "0"]
+        )
+        validate_args(parser, args)
+        self.assertEqual(args.retain_projection_rank, 0)
 
     def test_use_k2_cli_and_yaml(self):
         # Default is True
@@ -129,6 +161,31 @@ class ClosedFormBackpropConfigTests(unittest.TestCase):
             parser, args = parse_args(["--config", str(config)] + self._required())
             validate_args(parser, args)
             self.assertFalse(args.use_k2)
+
+    def test_null_retain_loss_cli_yaml_and_precedence(self):
+        parser, args = parse_args(self._required())
+        validate_args(parser, args)
+        self.assertFalse(args.use_null_retain_loss)
+
+        parser, args = parse_args(
+            self._required() + ["--use_null_retain_loss"]
+        )
+        validate_args(parser, args)
+        self.assertTrue(args.use_null_retain_loss)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config = Path(temp_dir) / "config.yaml"
+            config.write_text(
+                "use_null_retain_loss: true\n",
+                encoding="utf-8",
+            )
+            parser, args = parse_args(
+                ["--config", str(config)]
+                + self._required()
+                + ["--no-use_null_retain_loss"]
+            )
+            validate_args(parser, args)
+            self.assertFalse(args.use_null_retain_loss)
 
 
 if __name__ == "__main__":

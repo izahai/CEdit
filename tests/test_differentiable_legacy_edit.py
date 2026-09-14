@@ -5,6 +5,7 @@ import torch
 from src.differentiable_legacy_edit import (
     DifferentiableLegacyEditConfig,
     build_legacy_target_anchor_statistics,
+    build_retain_projector,
     prepare_differentiable_legacy_edit,
     select_value_parameter_names,
 )
@@ -73,6 +74,76 @@ def _prepared_state(dtype=torch.float64):
 
 
 class DifferentiableLegacyEditTests(unittest.TestCase):
+    def test_fixed_retain_projection_rank_overrides_threshold(self):
+        covariance = torch.diag(
+            torch.tensor([5.0, 3.0, 1.0, 0.1], dtype=torch.float64)
+        )
+
+        threshold_projector, _ = build_retain_projector(covariance, threshold=2.0)
+        fixed_projector, _ = build_retain_projector(
+            covariance,
+            threshold=10.0,
+            retain_projection_rank=1,
+        )
+
+        torch.testing.assert_close(
+            threshold_projector,
+            torch.diag(torch.tensor([0.0, 0.0, 1.0, 1.0], dtype=torch.float64)),
+        )
+        torch.testing.assert_close(
+            fixed_projector,
+            torch.diag(torch.tensor([0.0, 0.0, 0.0, 1.0], dtype=torch.float64)),
+        )
+
+    def test_zero_retain_projection_rank_builds_zero_projector(self):
+        covariance = torch.eye(4, dtype=torch.float64)
+        projector, _ = build_retain_projector(
+            covariance,
+            threshold=2.0,
+            retain_projection_rank=0,
+        )
+        torch.testing.assert_close(projector, torch.zeros_like(covariance))
+
+    def test_retain_projection_rank_rejects_invalid_values(self):
+        covariance = torch.eye(4, dtype=torch.float64)
+        for rank in (-1, True):
+            with self.subTest(rank=rank):
+                with self.assertRaisesRegex(ValueError, "nonnegative integer"):
+                    build_retain_projector(
+                        covariance,
+                        threshold=0.1,
+                        retain_projection_rank=rank,
+                    )
+        with self.assertRaisesRegex(ValueError, "cannot exceed"):
+            build_retain_projector(
+                covariance,
+                threshold=0.1,
+                retain_projection_rank=5,
+            )
+
+    def test_fixed_rank_is_reported_by_diagnostics_and_geometry(self):
+        dimension = 4
+        torch.manual_seed(17)
+        unet = _ToyUNet(dimension).double()
+        targets = torch.randn(1, 1, dimension, dtype=torch.float64)
+        retains = torch.randn(8, 1, dimension, dtype=torch.float64)
+        config = DifferentiableLegacyEditConfig(
+            retain_projection_rank=2,
+            threshold=-1.0,
+            use_k2=False,
+        )
+        state = prepare_differentiable_legacy_edit(
+            unet,
+            targets,
+            retains,
+            config=config,
+        )
+
+        _, diagnostics = state.effective_parameters(targets + 0.1)
+        self.assertEqual(state.projector_rank, 2)
+        self.assertEqual(diagnostics["projector_rank"], 2)
+        self.assertEqual(state.geometry_metadata()["projector_rank"], 2)
+
     def test_statistics_match_existing_legacy_helper(self):
         if build_target_anchor_statistics is None:
             self.skipTest("train_erase_null dependencies (kmeans_pytorch) not installed")
