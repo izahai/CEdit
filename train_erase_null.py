@@ -15,6 +15,7 @@ from src.residual_subspace import (
     build_largest_anchor_cosine_subspace_residuals,
     build_mean_norm_target_global_pairwise_residual_subspace_residuals,
     build_negative_target_normalized_residual_subspace_residuals,
+    build_norm_matched_truncated_svd_residuals,
     build_retain_aware_target_global_pairwise_residual_subspace_residuals,
     build_smallest_cosine_subspace_residuals,
     build_target_global_pairwise_residual_subspace_residuals,
@@ -30,6 +31,7 @@ ANCHOR_MODES = [
     'shared_residual_abs_cosine_medoid',
     'shared_residual_smallest_cosine_medoid',
     'truncated_svd_residual',
+    'norm_matched_truncated_svd_residual',
     'smallest_cosine_subspace',
     'negative_target_normalized_residual_subspace',
     'global_pairwise_residual_subspace',
@@ -408,6 +410,21 @@ def build_target_anchor_statistics(
         residuals = truncated_residuals.reshape_as(candidate_residuals).to(
             candidate_residuals.dtype
         )
+    elif anchor_mode == "norm_matched_truncated_svd_residual":
+        residuals, subspace_diagnostics = (
+            build_norm_matched_truncated_svd_residuals(
+                target_embeddings,
+                anchor_embeddings,
+                rank=residual_rank,
+            )
+        )
+        truncated_svd_requested_rank = residual_rank
+        truncated_svd_explained_energy = subspace_diagnostics[
+            "truncated_svd_explained_energy"
+        ]
+        truncated_svd_relative_error = subspace_diagnostics[
+            "truncated_svd_relative_error"
+        ]
     elif anchor_mode == "smallest_cosine_subspace":
         residuals, subspace_diagnostics = (
             build_smallest_cosine_subspace_residuals(
@@ -768,8 +785,16 @@ def edit_model(
             f"first basis vector="
             f"{anchor_diagnostics['subspace_basis_fallback_count']}"
         )
-    elif anchor_mode == "truncated_svd_residual":
-        print("Residual source: truncated SVD of all target-anchor pairs")
+    elif anchor_mode in [
+        "truncated_svd_residual",
+        "norm_matched_truncated_svd_residual",
+    ]:
+        label = (
+            "norm-matched truncated SVD"
+            if anchor_mode == "norm_matched_truncated_svd_residual"
+            else "truncated SVD"
+        )
+        print(f"Residual source: {label} of all target-anchor pairs")
     elif anchor_mode not in ["legacy", "shared_residual_mean"]:
         shared_target_index = anchor_diagnostics["shared_residual_target_index"]
         if shared_target_index is None:
@@ -970,7 +995,10 @@ if __name__ == '__main__':
     seed_everything(args.seed)
 
     if (
-        args.anchor_mode == 'truncated_svd_residual'
+        args.anchor_mode in [
+            'truncated_svd_residual',
+            'norm_matched_truncated_svd_residual',
+        ]
         and args.residual_rank > len(target_concepts)
     ):
         parser.error(
@@ -1012,6 +1040,10 @@ if __name__ == '__main__':
         file_suffix += '-shared_residual_smallest_cosine_medoid'
     elif args.anchor_mode == 'truncated_svd_residual':
         file_suffix += f'-truncated_svd_residual_rank_{args.residual_rank}'
+    elif args.anchor_mode == 'norm_matched_truncated_svd_residual':
+        file_suffix += (
+            f'-norm_matched_truncated_svd_residual_rank_{args.residual_rank}'
+        )
     elif args.anchor_mode == 'smallest_cosine_subspace':
         file_suffix += f'-smallest_cosine_subspace_top_k_{args.residual_top_k}'
     elif args.anchor_mode == 'global_pairwise_residual_subspace':

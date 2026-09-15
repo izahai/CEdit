@@ -121,6 +121,22 @@ class TrainConfigTests(unittest.TestCase):
         )
         self.assertIsNone(args.subspace_concepts_path)
 
+    def test_accepts_norm_matched_truncated_svd_mode(self):
+        _, args = parse_args(
+            [
+                "--anchor_mode",
+                "norm_matched_truncated_svd_residual",
+                "--residual_rank",
+                "30",
+            ]
+        )
+
+        self.assertEqual(
+            args.anchor_mode,
+            "norm_matched_truncated_svd_residual",
+        )
+        self.assertEqual(args.residual_rank, 30)
+
     def test_retain_aware_target_global_mode_does_not_require_subspace_csv(self):
         _, args = parse_args(
             [

@@ -1,0 +1,36 @@
+runtime:
+  python_bin: /venv/main/bin/python
+  gpu_id: 0
+
+repositories:
+  ce_eval_repository: https://github.com/izahai/CE-Eval.git
+  ce_eval_branch: main
+
+experiment:
+  sd_ckpt: CompVis/stable-diffusion-v1-4
+  benchmark_name: 100_celebrity
+  anchor_concept: person
+  methods:
+    - legacy_full
+    - legacy_svd_rank30
+    - tgprs_rank30
+  residual_scales:
+    - 0.2
+    - 0.4
+    - 0.6
+    - 0.8
+    - 1.0
+  residual_rank: 30
+  batch_size: 10
+  embedding_batch_size: 32
+  inference_timesteps: 50
+  expected_images_per_split: 500
+  gcd_use_cuda: true
+  gcd_num_workers: 8
+  gcd_batch_size: 32
+  gcd_prefetch_factor: 2
+
+paths:
+  ce_eval_root: ${WORKSPACE_DIR}/CE-Eval
+  output_root: ${REPO_ROOT}/motivation/mov1/outputs
+

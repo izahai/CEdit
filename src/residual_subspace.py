@@ -24,6 +24,101 @@ def _cosine_between(left, right, eps):
     return numerator / denominator.clamp_min(eps)
 
 
+def build_norm_matched_truncated_svd_residuals(
+    target_embeddings,
+    anchor_embeddings,
+    rank,
+    eps=1e-8,
+):
+    """Truncate legacy residuals while preserving every residual norm."""
+    if target_embeddings.ndim < 2:
+        raise ValueError("Target embeddings must include a batch dimension")
+    if target_embeddings.shape[0] == 0:
+        raise ValueError("At least one target embedding is required")
+    if target_embeddings.shape != anchor_embeddings.shape:
+        raise ValueError(
+            "Target and anchor embedding shapes must match, got "
+            f"{tuple(target_embeddings.shape)} and {tuple(anchor_embeddings.shape)}"
+        )
+    if not isinstance(eps, (int, float)) or eps <= 0:
+        raise ValueError(f"Epsilon must be positive, got {eps}")
+    if isinstance(rank, bool) or not isinstance(rank, int) or rank <= 0:
+        raise ValueError(f"Residual rank must be a positive integer, got {rank}")
+
+    legacy_residuals = anchor_embeddings - target_embeddings
+    flattened_legacy = legacy_residuals.reshape(
+        legacy_residuals.shape[0], -1
+    ).float()
+    max_rank = min(flattened_legacy.shape)
+    if rank > max_rank:
+        raise ValueError(
+            f"Residual rank {rank} exceeds the maximum possible rank "
+            f"{max_rank} for residual matrix shape {tuple(flattened_legacy.shape)}"
+        )
+
+    legacy_norms = torch.linalg.vector_norm(flattened_legacy, dim=1)
+    _, singular_values, vh = torch.linalg.svd(
+        flattened_legacy,
+        full_matrices=False,
+    )
+    largest_singular_value = singular_values.max()
+    rank_tolerance = (
+        max(flattened_legacy.shape)
+        * torch.finfo(singular_values.dtype).eps
+        * largest_singular_value
+    )
+    effective_rank = int((singular_values > rank_tolerance).sum().item())
+    basis_rank = min(rank, effective_rank)
+
+    if basis_rank:
+        basis = vh[:basis_rank]
+        projected = _project_onto_basis(flattened_legacy, basis)
+        projected_norms = torch.linalg.vector_norm(projected, dim=1)
+        usable_projection = projected_norms > eps
+        output = torch.zeros_like(flattened_legacy)
+        output[usable_projection] = (
+            projected[usable_projection]
+            / projected_norms[usable_projection].unsqueeze(1)
+            * legacy_norms[usable_projection].unsqueeze(1)
+        )
+        fallback = ~usable_projection & (legacy_norms > eps)
+        output[fallback] = legacy_norms[fallback].unsqueeze(1) * basis[0]
+    else:
+        projected = torch.zeros_like(flattened_legacy)
+        output = torch.zeros_like(flattened_legacy)
+        fallback = legacy_norms > eps
+
+    total_energy = singular_values.square().sum()
+    retained_energy = singular_values[:basis_rank].square().sum()
+    if total_energy > 0:
+        explained_energy = (retained_energy / total_energy).item()
+        relative_error = (
+            torch.linalg.vector_norm(flattened_legacy - projected)
+            / torch.linalg.vector_norm(flattened_legacy)
+        ).item()
+    else:
+        explained_energy = 1.0
+        relative_error = 0.0
+
+    output_norms = torch.linalg.vector_norm(output, dim=1)
+    diagnostics = {
+        "truncated_svd_requested_rank": int(rank),
+        "truncated_svd_input_effective_rank": effective_rank,
+        "truncated_svd_basis_rank": basis_rank,
+        "truncated_svd_output_rank": int(torch.linalg.matrix_rank(output).item()),
+        "truncated_svd_singular_values": singular_values.tolist(),
+        "truncated_svd_explained_energy": explained_energy,
+        "truncated_svd_relative_error": relative_error,
+        "truncated_svd_norm_matched": True,
+        "truncated_svd_max_norm_error": (
+            (output_norms - legacy_norms).abs().max().item()
+        ),
+        "truncated_svd_zero_input_norm_count": int((legacy_norms <= eps).sum().item()),
+        "truncated_svd_zero_projection_fallback_count": int(fallback.sum().item()),
+    }
+    return output.reshape_as(legacy_residuals).to(target_embeddings.dtype), diagnostics
+
+
 def build_global_pairwise_residual_matrix(
     concept_embeddings,
     extra_anchor_embeddings,

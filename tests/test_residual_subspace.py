@@ -9,10 +9,79 @@ from src.residual_subspace import (
     build_largest_anchor_cosine_subspace_residuals,
     build_mean_norm_target_global_pairwise_residual_subspace_residuals,
     build_negative_target_normalized_residual_subspace_residuals,
+    build_norm_matched_truncated_svd_residuals,
     build_retain_aware_target_global_pairwise_residual_subspace_residuals,
     build_smallest_cosine_subspace_residuals,
     build_target_global_pairwise_residual_subspace_residuals,
 )
+
+
+class NormMatchedTruncatedSvdResidualTests(unittest.TestCase):
+    def test_preserves_each_legacy_norm_and_caps_rank(self):
+        targets = torch.zeros(4, 1, 4)
+        legacy = torch.tensor(
+            [
+                [[1.0, 0.0, 0.0, 0.0]],
+                [[0.0, 2.0, 0.0, 0.0]],
+                [[0.0, 0.0, 3.0, 0.0]],
+                [[1.0, 1.0, 1.0, 1.0]],
+            ]
+        )
+
+        residuals, diagnostics = build_norm_matched_truncated_svd_residuals(
+            targets,
+            targets + legacy,
+            rank=2,
+        )
+
+        torch.testing.assert_close(
+            residuals.reshape(4, -1).norm(dim=1),
+            legacy.reshape(4, -1).norm(dim=1),
+        )
+        self.assertLessEqual(torch.linalg.matrix_rank(residuals.reshape(4, -1)), 2)
+        self.assertLessEqual(diagnostics["truncated_svd_output_rank"], 2)
+        self.assertTrue(diagnostics["truncated_svd_norm_matched"])
+        self.assertLess(diagnostics["truncated_svd_max_norm_error"], 1e-6)
+
+    def test_full_rank_reconstructs_legacy_residuals(self):
+        targets = torch.tensor(
+            [[[1.0, 2.0, 3.0]], [[4.0, 5.0, 6.0]], [[7.0, 8.0, 9.0]]]
+        )
+        legacy = torch.tensor(
+            [[[1.0, -2.0, 0.5]], [[0.5, 3.0, -1.0]], [[-2.0, 1.0, 4.0]]]
+        )
+
+        residuals, diagnostics = build_norm_matched_truncated_svd_residuals(
+            targets,
+            targets + legacy,
+            rank=3,
+        )
+
+        torch.testing.assert_close(residuals, legacy, atol=1e-5, rtol=1e-5)
+        self.assertAlmostEqual(diagnostics["truncated_svd_explained_energy"], 1.0)
+
+    def test_zero_residuals_are_finite_and_remain_zero(self):
+        targets = torch.ones(3, 1, 4)
+
+        residuals, diagnostics = build_norm_matched_truncated_svd_residuals(
+            targets,
+            targets.clone(),
+            rank=2,
+        )
+
+        self.assertTrue(torch.isfinite(residuals).all())
+        torch.testing.assert_close(residuals, torch.zeros_like(residuals))
+        self.assertEqual(diagnostics["truncated_svd_input_effective_rank"], 0)
+        self.assertEqual(diagnostics["truncated_svd_zero_input_norm_count"], 3)
+
+    def test_rejects_rank_above_pair_count(self):
+        targets = torch.zeros(2, 1, 3)
+        with self.assertRaisesRegex(ValueError, "exceeds"):
+            build_norm_matched_truncated_svd_residuals(
+                targets,
+                targets + 1.0,
+                rank=3,
+            )
 
 
 class GlobalPairwiseResidualSubspaceTests(unittest.TestCase):

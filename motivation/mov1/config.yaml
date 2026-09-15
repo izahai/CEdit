@@ -1,0 +1,6 @@
+model_id: CompVis/stable-diffusion-v1-4
+benchmark_csv: data/100_celebrity.csv
+anchor_prompt: person
+target_count: 100
+residual_rank: 30
+embedding_batch_size: 32

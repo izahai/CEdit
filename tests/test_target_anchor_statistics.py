@@ -25,6 +25,33 @@ from train_erase_null import build_target_anchor_statistics
 
 
 class TargetAnchorStatisticsTests(unittest.TestCase):
+    def test_norm_matched_truncated_svd_caps_edit_statistic_rank(self):
+        targets = [
+            torch.tensor([[1.0, 0.0, 0.0, 0.0]]),
+            torch.tensor([[0.0, 1.0, 0.0, 0.0]]),
+            torch.tensor([[0.0, 0.0, 1.0, 0.0]]),
+            torch.tensor([[0.0, 0.0, 0.0, 1.0]]),
+        ]
+        legacy = [
+            torch.tensor([[1.0, 2.0, 0.0, 0.0]]),
+            torch.tensor([[0.0, 2.0, 3.0, 0.0]]),
+            torch.tensor([[0.0, 0.0, 3.0, 4.0]]),
+            torch.tensor([[5.0, 0.0, 0.0, 4.0]]),
+        ]
+        anchors = [target + residual for target, residual in zip(targets, legacy)]
+
+        _, target_anchor_delta, diagnostics = build_target_anchor_statistics(
+            targets,
+            anchors,
+            anchor_mode="norm_matched_truncated_svd_residual",
+            residual_rank=2,
+        )
+
+        self.assertLessEqual(diagnostics["residual_rank"], 2)
+        self.assertLessEqual(diagnostics["edit_statistic_rank"], 2)
+        self.assertLessEqual(torch.linalg.matrix_rank(target_anchor_delta), 2)
+        self.assertTrue(diagnostics["truncated_svd_norm_matched"])
+
     def test_mean_norm_target_global_mode_reports_per_target_magnitudes(self):
         targets = [
             torch.tensor([[1.0, 1.0]]),
