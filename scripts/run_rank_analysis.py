@@ -26,19 +26,25 @@ from src.rank_analysis import (  # noqa: E402
     build_tgprs_basis,
     edit_statistic,
     layer_edit_metrics,
+    low_rank_delta_spectrum,
+    low_rank_delta_spectrum_from_target_factor,
     normalize_rows,
+    projected_target_residuals,
+    random_negative_target_residuals,
     random_rank_residuals,
-    retain_low_projection,
+    retain_eigensystem,
+    retain_projection_from_eigensystem,
     second_moment,
     spectral_metrics,
-    speed_delta_weight,
+    speed_retain_construction,
+    speed_delta_weight_from_target_factor,
     speed_right_factor,
     tgprs_residuals_from_basis,
     truncated_svd_residuals,
 )
 
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
 
 
 def parse_args():
@@ -248,16 +254,137 @@ def geometry_record(
     }
 
 
-def run_part_a(config, targets, target_names, anchor, extra_anchors, output, spectra):
+def write_common_anchor_geometry(
+    path,
+    targets,
+    target_names,
+    anchor,
+    anchor_name="person",
+    count=10,
+    seed=0,
+    rtol=1e-5,
+):
+    """Persist a model-independent 2-D view and exact residual cosines."""
+    if count <= 0 or count > len(target_names):
+        raise ValueError("Common-anchor target count is outside the dataset")
+    indices = subset_indices(len(target_names), count, seed).to(targets.device)
+    selected_targets = targets[indices]
+    selected_names = [target_names[index] for index in indices.cpu().tolist()]
+    residuals = anchor.expand_as(selected_targets) - selected_targets
+    points = torch.cat([selected_targets, anchor], dim=0).float()
+    centered = points - points.mean(dim=0, keepdim=True)
+    _, singular_values, vh = torch.linalg.svd(centered, full_matrices=False)
+    coordinates = centered @ vh[:2].T
+    energy = singular_values.square()
+    explained = energy[:2] / energy.sum().clamp_min(1e-30)
+    normalized = normalize_rows(residuals)
+    rank_summary, _ = spectral_metrics(residuals, rtol=rtol)
+    record = {
+        "schema_version": SCHEMA_VERSION,
+        "target_count": int(count),
+        "seed": int(seed),
+        "target_names": selected_names,
+        "target_coordinates": coordinates[:-1].cpu().tolist(),
+        "anchor_name": str(anchor_name),
+        "anchor_coordinate": coordinates[-1].cpu().tolist(),
+        "pca_explained_variance_ratio": explained.cpu().tolist(),
+        "residual_cosine_similarity": (normalized @ normalized.T).cpu().tolist(),
+        "residual": rank_summary,
+    }
+    with path.open("w", encoding="utf-8") as destination:
+        json.dump(record, destination, indent=2, sort_keys=True)
+        destination.write("\n")
+
+
+def delta_rank_records(
+    record_id,
+    method,
+    requested_rank,
+    seed,
+    target_count,
+    residuals,
+    targets,
+    right_factor,
+    layer_weights,
+    rtol,
+    spectra,
+):
+    rows = []
+    transformed_targets = targets @ right_factor / targets.shape[0]
+    for layer_index, (layer_name, layer_weight) in enumerate(layer_weights):
+        singular_values = low_rank_delta_spectrum_from_target_factor(
+            layer_weight, residuals, transformed_targets
+        )
+        summary, _ = spectral_metrics(
+            singular_values.new_zeros((1, 1)),
+            rtol=rtol,
+            singular_values=singular_values,
+        )
+        spectra[f"{record_id}__delta_layer{layer_index:02d}"] = (
+            singular_values.detach().cpu().numpy()
+        )
+        rows.append({
+            "record_id": f"{record_id}-layer{layer_index:02d}",
+            "section": "A",
+            "method": method,
+            "requested_rank": requested_rank,
+            "seed": int(seed),
+            "target_count": int(target_count),
+            "layer_index": int(layer_index),
+            "layer_name": layer_name,
+            **{f"delta_{key}": value for key, value in summary.items()},
+        })
+    aggregate = {
+        "record_id": f"{record_id}-aggregate",
+        "section": "A",
+        "method": method,
+        "requested_rank": requested_rank,
+        "seed": int(seed),
+        "target_count": int(target_count),
+        "layer_index": "aggregate",
+        "layer_name": "aggregate",
+        "layer_count": len(rows),
+    }
+    for key in ("numerical_rank", "stable_rank", "effective_rank"):
+        values = [float(row[f"delta_{key}"]) for row in rows]
+        aggregate[f"delta_{key}_mean"] = sum(values) / len(values)
+        aggregate[f"delta_{key}_min"] = min(values)
+        aggregate[f"delta_{key}_max"] = max(values)
+    return rows + [aggregate]
+
+
+def run_part_a(
+    config,
+    targets,
+    target_names,
+    anchor,
+    extra_anchors,
+    retain_embeddings,
+    k2,
+    layer_weights,
+    output,
+    spectra,
+):
     section = config["part_a"]
     output_path = output / "geometry_metrics.jsonl"
+    delta_path = output / "delta_rank_metrics.jsonl"
     completed = existing_record_ids(output_path)
+    completed_delta = existing_record_ids(delta_path)
     rtol = float(section.get("numerical_rank_rtol", 1e-5))
     counts = [int(value) for value in section["target_counts"]]
     seeds = [int(value) for value in section["subset_seeds"]]
     ranks = [int(value) for value in section["tgprs_ranks"]]
     if max(counts) > len(target_names):
         raise ValueError("Part A target count exceeds available erase concepts")
+
+    delta_config = section.get("delta_rank", {})
+    delta_enabled = bool(delta_config.get("enabled", False))
+    retain_u, retain_singular_values = retain_eigensystem(retain_embeddings)
+    retain_projection, _ = retain_projection_from_eigensystem(
+        retain_u,
+        retain_singular_values,
+        float(delta_config.get("threshold", 0.1)),
+    )
 
     for seed in seeds:
         for count in counts:
@@ -282,6 +409,8 @@ def run_part_a(config, targets, target_names, anchor, extra_anchors, output, spe
                 append_jsonl(output_path, record)
                 completed.add(legacy_id)
                 print(f"[Part A] wrote {legacy_id}", flush=True)
+
+            residual_settings = [(legacy_id, "legacy", None, legacy)]
 
             basis, pairwise_spectrum, basis_diagnostics = build_tgprs_basis(
                 selected_targets, extra_anchors, max(ranks)
@@ -312,42 +441,163 @@ def run_part_a(config, targets, target_names, anchor, extra_anchors, output, spe
                     append_jsonl(output_path, record)
                     completed.add(record_id)
                     print(f"[Part A] wrote {record_id}", flush=True)
+                residual_settings.append((record_id, "tgprs", rank, residuals))
+
+            if delta_enabled:
+                target_covariance = second_moment(selected_targets)
+                right_factor = speed_right_factor(
+                    target_covariance,
+                    retain_projection,
+                    k2,
+                    float(delta_config.get("retain_scale", 0.1)),
+                    float(delta_config.get("lamb", 0.0)),
+                )
+                for base_id, method, requested_rank, residuals in residual_settings:
+                    aggregate_id = f"{base_id}-aggregate"
+                    if aggregate_id in completed_delta:
+                        continue
+                    for delta_record in delta_rank_records(
+                        base_id,
+                        method,
+                        requested_rank,
+                        seed,
+                        count,
+                        residuals,
+                        selected_targets,
+                        right_factor,
+                        layer_weights,
+                        rtol,
+                        spectra,
+                    ):
+                        if delta_record["record_id"] not in completed_delta:
+                            append_jsonl(delta_path, delta_record)
+                            completed_delta.add(delta_record["record_id"])
 
 
 def residual_settings(part_b, targets, legacy, extra_anchors):
     ranks = [int(value) for value in part_b["ranks"]]
-    yield "legacy_full", None, None, legacy, {}
-    for rank in ranks:
-        yield (
-            "legacy_svd",
-            rank,
-            None,
-            truncated_svd_residuals(legacy, rank),
-            {},
-        )
-    for seed in [int(value) for value in part_b.get("random_seeds", [0])]:
-        for rank in ranks:
-            yield (
-                "random_subspace",
-                rank,
-                seed,
-                random_rank_residuals(legacy, rank, seed),
-                {},
-            )
     basis, _, basis_diagnostics = build_tgprs_basis(
         targets, extra_anchors, max(ranks)
     )
+    canonical = {}
+    for rank in ranks:
+        canonical[rank], _ = tgprs_residuals_from_basis(
+            targets, legacy, basis, rank
+        )
+
+    yield {
+        "method": "legacy_full",
+        "requested_rank": None,
+        "basis_seed": None,
+        "residuals": legacy,
+        "canonical_residuals": None,
+        "direction_variant": "legacy_anchor_delta",
+        "diagnostics": {},
+    }
+    for rank in ranks:
+        yield {
+            "method": "legacy_svd",
+            "requested_rank": rank,
+            "basis_seed": None,
+            "residuals": truncated_svd_residuals(legacy, rank),
+            "canonical_residuals": canonical[rank],
+            "direction_variant": "legacy_svd",
+            "diagnostics": {},
+        }
+    for seed in [int(value) for value in part_b.get("random_seeds", [0])]:
+        for rank in ranks:
+            yield {
+                "method": "random_subspace",
+                "requested_rank": rank,
+                "basis_seed": seed,
+                "residuals": random_rank_residuals(legacy, rank, seed),
+                "canonical_residuals": canonical[rank],
+                "direction_variant": "projected_legacy_random",
+                "diagnostics": {"basis_seed": seed},
+            }
     for rank in ranks:
         residuals, direction_diagnostics = tgprs_residuals_from_basis(
             targets, legacy, basis, rank
         )
         diagnostics = dict(basis_diagnostics)
         diagnostics.update(direction_diagnostics)
-        yield "tgprs", rank, None, residuals, diagnostics
+        yield {
+            "method": "tgprs",
+            "requested_rank": rank,
+            "basis_seed": None,
+            "residuals": residuals,
+            "canonical_residuals": canonical[rank],
+            "direction_variant": "negative_target_projection",
+            "diagnostics": diagnostics,
+        }
+
+    if not bool(part_b.get("direction_ablations", {}).get("enabled", False)):
+        return
+    for rank in ranks:
+        positive, positive_diagnostics = projected_target_residuals(
+            targets, legacy, basis, rank, sign=1.0
+        )
+        complement, complement_diagnostics = projected_target_residuals(
+            targets, legacy, basis, rank, sign=-1.0, complement=True
+        )
+        yield {
+            "method": "tgprs_positive",
+            "requested_rank": rank,
+            "basis_seed": None,
+            "residuals": positive,
+            "canonical_residuals": canonical[rank],
+            "direction_variant": "positive_target_projection",
+            "diagnostics": {**basis_diagnostics, **positive_diagnostics},
+        }
+        yield {
+            "method": "tgprs_complement",
+            "requested_rank": rank,
+            "basis_seed": None,
+            "residuals": complement,
+            "canonical_residuals": canonical[rank],
+            "direction_variant": "negative_target_complement",
+            "diagnostics": {**basis_diagnostics, **complement_diagnostics},
+        }
+    for seed in [int(value) for value in part_b.get("random_seeds", [0])]:
+        for rank in ranks:
+            residuals, diagnostics = random_negative_target_residuals(
+                targets, legacy, rank, seed
+            )
+            yield {
+                "method": "random_negative_target",
+                "requested_rank": rank,
+                "basis_seed": seed,
+                "residuals": residuals,
+                "canonical_residuals": canonical[rank],
+                "direction_variant": "negative_target_random",
+                "diagnostics": diagnostics,
+            }
 
 
 def aggregate_record(base, rows):
-    record = dict(base)
+    per_layer_fields = {
+        "record_id",
+        "layer_index",
+        "layer_name",
+        "target_effect",
+        "target_rotation_deg",
+        "retain_leakage",
+        "directional_realization_cosine",
+        "directional_relative_error",
+        "delta_frobenius_norm",
+        "edited_output_norm_ratio",
+        "canonical_erasure_alignment",
+        "anchor_distance_ratio",
+        "delta_numerical_rank",
+        "delta_stable_rank",
+        "delta_effective_rank",
+        "retain_low_rank",
+        "retain_filtered_count",
+        "retain_augmented_count",
+        "retain_constructed_count",
+        "retain_seed",
+    }
+    record = {key: value for key, value in base.items() if key not in per_layer_fields}
     record.update({
         "record_id": f"{base['configuration_id']}-aggregate",
         "layer_index": "aggregate",
@@ -355,6 +605,20 @@ def aggregate_record(base, rows):
         "layer_count": len(rows),
     })
     record.update(aggregate_layer_metrics(rows))
+    for name in (
+        "retain_low_rank",
+        "retain_filtered_count",
+        "retain_augmented_count",
+        "retain_constructed_count",
+        "delta_numerical_rank",
+        "delta_stable_rank",
+        "delta_effective_rank",
+    ):
+        if all(name in row for row in rows):
+            values = [float(row[name]) for row in rows]
+            record[f"{name}_mean"] = sum(values) / len(values)
+            record[f"{name}_min"] = min(values)
+            record[f"{name}_max"] = max(values)
     return record
 
 
@@ -384,91 +648,227 @@ def run_part_b(
     target_covariance = second_moment(selected_targets)
 
     retain_config = config["retain"]
-    if int(retain_config.get("aug_num", 0)) != 0:
-        raise ValueError("Rank analysis currently requires retain.aug_num: 0")
-    retain_projection, retain_spectrum, retain_rank = retain_low_projection(
-        retain_embeddings, float(retain_config["threshold"])
-    )
-    np.save(output / "retain_singular_values.npy", retain_spectrum.cpu().numpy())
-    right_factors = {
-        float(scale): speed_right_factor(
-            target_covariance,
-            retain_projection,
-            k2,
-            float(scale),
-            float(retain_config.get("lamb", 0.0)),
+    thresholds = [
+        float(value)
+        for value in section.get(
+            "retain_thresholds", [retain_config.get("threshold", 0.1)]
         )
-        for scale in section["retain_scales"]
-    }
+    ]
+    retain_scales = [float(value) for value in section["retain_scales"]]
+    fixed_u, fixed_spectrum = retain_eigensystem(retain_embeddings)
+    np.save(output / "retain_singular_values.npy", fixed_spectrum.cpu().numpy())
+    retain_spectra = {"fixed": fixed_spectrum.detach().cpu().numpy()}
     compute_delta_spectrum = bool(section.get("compute_delta_spectrum", False))
     rtol = float(section.get("numerical_rank_rtol", 1e-5))
+    robustness = section.get("full_speed_robustness", {})
+    robustness_ranks = {
+        int(value) for value in robustness.get("tgprs_ranks", [5, 10, 30])
+    }
+    runtime_seed = int(config.get("runtime", {}).get("seed", 0))
+    fixed_factors = {}
+    for threshold in thresholds:
+        projection, projection_rank = retain_projection_from_eigensystem(
+            fixed_u, fixed_spectrum, threshold
+        )
+        for scale in retain_scales:
+            fixed_factors[(threshold, scale)] = (
+                projection_rank,
+                speed_right_factor(
+                    target_covariance,
+                    projection,
+                    k2,
+                    scale,
+                    float(retain_config.get("lamb", 0.0)),
+                ),
+            )
+    fixed_factors = {
+        key: (rank, factor, selected_targets @ factor / selected_targets.shape[0])
+        for key, (rank, factor) in fixed_factors.items()
+    }
 
-    for method, requested_rank, random_seed, residuals, diagnostics in residual_settings(
-        section, selected_targets, legacy, extra_anchors
-    ):
+    for setting in residual_settings(section, selected_targets, legacy, extra_anchors):
+        method = setting["method"]
+        requested_rank = setting["requested_rank"]
+        random_seed = setting["basis_seed"]
+        residuals = setting["residuals"]
+        diagnostics = setting["diagnostics"]
         statistic = edit_statistic(residuals, selected_targets)
         residual_summary, _ = spectral_metrics(residuals, rtol=rtol)
-        for scale, right_factor in right_factors.items():
-            rank_label = "full" if requested_rank is None else f"k{requested_rank}"
-            seed_label = "" if random_seed is None else f"-seed{random_seed}"
-            configuration_id = (
-                f"b-{method}-{rank_label}{seed_label}-rs{scale:g}"
-            )
-            aggregate_id = f"{configuration_id}-aggregate"
-            if aggregate_id in completed:
-                continue
-            base = {
-                "section": "B",
-                "configuration_id": configuration_id,
-                "target_count": count,
-                "target_seed": seed,
-                "target_subset_hash": subset_hash(
-                    [target_names[index] for index in indices.cpu().tolist()]
-                ),
-                "method": method,
-                "requested_rank": requested_rank,
-                "realized_rank": residual_summary["numerical_rank"],
-                "random_seed": random_seed,
-                "retain_scale": scale,
-                "retain_threshold": float(retain_config["threshold"]),
-                "retain_low_rank": retain_rank,
-                "diagnostics": diagnostics,
-            }
-            layer_rows = []
+        profiles = ["fixed"]
+        if bool(robustness.get("enabled", False)) and (
+            method == "legacy_full"
+            or (method == "tgprs" and requested_rank in robustness_ranks)
+        ):
+            profiles.append("full_speed")
+
+        for profile in profiles:
+            layer_contexts = []
             for layer_index, (layer_name, layer_weight) in enumerate(layer_weights):
-                layer_id = f"{configuration_id}-layer{layer_index:02d}"
-                if layer_id in previous_records:
-                    layer_rows.append(previous_records[layer_id])
-                    continue
-                delta = speed_delta_weight(layer_weight, statistic, right_factor)
-                metrics = layer_edit_metrics(
+                if profile == "fixed":
+                    context_embeddings = retain_embeddings
+                    retain_u = fixed_u
+                    retain_spectrum = fixed_spectrum
+                    retain_diagnostics = {
+                        "retain_original_count": int(retain_embeddings.shape[0]),
+                        "retain_filtered_count": int(retain_embeddings.shape[0]),
+                        "retain_augmented_count": 0,
+                        "retain_constructed_count": int(retain_embeddings.shape[0]),
+                        "retain_aug_num": 0,
+                        "retain_filter_enabled": False,
+                        "retain_seed": runtime_seed,
+                    }
+                else:
+                    construction_seed = (
+                        runtime_seed
+                        + layer_index
+                        + 100 * int(requested_rank or 0)
+                    )
+                    context_embeddings, retain_diagnostics = speed_retain_construction(
+                        retain_embeddings,
+                        layer_weight,
+                        statistic,
+                        target_covariance,
+                        aug_num=int(robustness.get("aug_num", 10)),
+                        filter_enabled=bool(robustness.get("filter_enabled", True)),
+                        seed=construction_seed,
+                    )
+                    retain_u, retain_spectrum = retain_eigensystem(context_embeddings)
+                    spectrum_key = (
+                        f"{profile}__{method}__k{requested_rank or 'full'}"
+                        f"__layer{layer_index:02d}"
+                    )
+                    retain_spectra[spectrum_key] = (
+                        retain_spectrum.detach().cpu().numpy()
+                    )
+                layer_contexts.append((
+                    layer_name,
                     layer_weight,
-                    delta,
-                    selected_targets,
-                    residuals,
-                    retain_embeddings,
-                )
-                if compute_delta_spectrum:
-                    delta_summary, _ = spectral_metrics(delta, rtol=rtol)
-                    metrics.update({
-                        "delta_numerical_rank": delta_summary["numerical_rank"],
-                        "delta_stable_rank": delta_summary["stable_rank"],
-                        "delta_effective_rank": delta_summary["effective_rank"],
-                    })
-                row = dict(base)
-                row.update({
-                    "record_id": layer_id,
-                    "layer_index": layer_index,
-                    "layer_name": layer_name,
-                })
-                row.update(metrics)
-                append_jsonl(output_path, row)
-                completed.add(row["record_id"])
-                layer_rows.append(row)
-            aggregate = aggregate_record(base, layer_rows)
-            append_jsonl(output_path, aggregate)
-            completed.add(aggregate_id)
-            print(f"[Part B] wrote {configuration_id}", flush=True)
+                    retain_u,
+                    retain_spectrum,
+                    retain_diagnostics,
+                ))
+
+            for threshold in thresholds:
+                for scale in retain_scales:
+                    rank_label = (
+                        "full" if requested_rank is None else f"k{requested_rank}"
+                    )
+                    seed_label = (
+                        "" if random_seed is None else f"-seed{random_seed}"
+                    )
+                    configuration_id = (
+                        f"b-{profile}-{method}-{rank_label}{seed_label}"
+                        f"-t{threshold:g}-rs{scale:g}"
+                    )
+                    aggregate_id = f"{configuration_id}-aggregate"
+                    if aggregate_id in completed:
+                        continue
+                    layer_rows = []
+                    for layer_index, context in enumerate(layer_contexts):
+                        (
+                            layer_name,
+                            layer_weight,
+                            retain_u,
+                            retain_spectrum,
+                            retain_diagnostics,
+                        ) = context
+                        layer_id = f"{configuration_id}-layer{layer_index:02d}"
+                        if layer_id in previous_records:
+                            layer_rows.append(previous_records[layer_id])
+                            continue
+                        if profile == "fixed":
+                            retain_rank, right_factor, transformed_targets = fixed_factors[
+                                (threshold, scale)
+                            ]
+                        else:
+                            retain_projection, retain_rank = (
+                                retain_projection_from_eigensystem(
+                                    retain_u, retain_spectrum, threshold
+                                )
+                            )
+                            right_factor = speed_right_factor(
+                                target_covariance,
+                                retain_projection,
+                                k2,
+                                scale,
+                                float(retain_config.get("lamb", 0.0)),
+                            )
+                            transformed_targets = (
+                                selected_targets @ right_factor
+                                / selected_targets.shape[0]
+                            )
+                        delta = speed_delta_weight_from_target_factor(
+                            layer_weight,
+                            residuals,
+                            transformed_targets,
+                        )
+                        metrics = layer_edit_metrics(
+                            layer_weight,
+                            delta,
+                            selected_targets,
+                            residuals,
+                            retain_embeddings,
+                            anchor_embeddings=selected_anchor,
+                            canonical_residuals=setting["canonical_residuals"],
+                        )
+                        if compute_delta_spectrum:
+                            singular_values = low_rank_delta_spectrum(
+                                layer_weight,
+                                residuals,
+                                selected_targets,
+                                right_factor,
+                            )
+                            delta_summary, _ = spectral_metrics(
+                                singular_values.new_zeros((1, 1)),
+                                rtol=rtol,
+                                singular_values=singular_values,
+                            )
+                            metrics.update({
+                                "delta_numerical_rank": delta_summary["numerical_rank"],
+                                "delta_stable_rank": delta_summary["stable_rank"],
+                                "delta_effective_rank": delta_summary["effective_rank"],
+                            })
+                        base = {
+                            "section": "B",
+                            "configuration_id": configuration_id,
+                            "target_count": count,
+                            "target_seed": seed,
+                            "target_subset_hash": subset_hash(
+                                [target_names[index] for index in indices.cpu().tolist()]
+                            ),
+                            "method": method,
+                            "direction_variant": setting["direction_variant"],
+                            "requested_rank": requested_rank,
+                            "realized_rank": residual_summary["numerical_rank"],
+                            "random_seed": random_seed,
+                            "basis_seed": random_seed,
+                            "retain_profile": profile,
+                            "retain_scale": scale,
+                            "retain_threshold": threshold,
+                            "retain_low_rank": retain_rank,
+                            "aug_num": retain_diagnostics["retain_aug_num"],
+                            "filter_enabled": retain_diagnostics[
+                                "retain_filter_enabled"
+                            ],
+                            **retain_diagnostics,
+                            "diagnostics": diagnostics,
+                        }
+                        row = dict(base)
+                        row.update({
+                            "record_id": layer_id,
+                            "layer_index": layer_index,
+                            "layer_name": layer_name,
+                        })
+                        row.update(metrics)
+                        append_jsonl(output_path, row)
+                        completed.add(row["record_id"])
+                        layer_rows.append(row)
+                    aggregate = aggregate_record(layer_rows[0], layer_rows)
+                    aggregate["record_id"] = aggregate_id
+                    append_jsonl(output_path, aggregate)
+                    completed.add(aggregate_id)
+                    print(f"[Part B] wrote {configuration_id}", flush=True)
+            np.savez_compressed(output / "retain_spectra.npz", **retain_spectra)
 
 
 def write_manifest(path, config, dataset_path, model_id, device, status, extra=None):
@@ -490,9 +890,12 @@ def write_manifest(path, config, dataset_path, model_id, device, status, extra=N
         "config": config,
         "artifacts": {
             "geometry_metrics": "geometry_metrics.jsonl",
+            "delta_rank_metrics": "delta_rank_metrics.jsonl",
             "edit_metrics": "edit_metrics.jsonl",
             "spectra": "spectra.npz",
             "retain_spectrum": "retain_singular_values.npy",
+            "retain_spectra": "retain_spectra.npz",
+            "common_anchor_geometry": "common_anchor_geometry.json",
         },
     }
     if extra:
@@ -536,7 +939,11 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     if args.fresh and any(
         (output / name).exists()
-        for name in ("geometry_metrics.jsonl", "edit_metrics.jsonl")
+        for name in (
+            "geometry_metrics.jsonl",
+            "delta_rank_metrics.jsonl",
+            "edit_metrics.jsonl",
+        )
     ):
         raise FileExistsError(f"Fresh run requested but results exist in {output}")
 
@@ -583,6 +990,19 @@ def main():
     if not layer_weights:
         raise RuntimeError("No attn2.to_v.weight parameters found")
 
+    common_config = config.get("common_anchor_figure", {})
+    if bool(common_config.get("enabled", False)):
+        write_common_anchor_geometry(
+            output / "common_anchor_geometry.json",
+            targets,
+            target_names,
+            anchor,
+            anchor_name=common_anchor,
+            count=int(common_config.get("target_count", 10)),
+            seed=int(common_config.get("seed", 0)),
+            rtol=float(common_config.get("numerical_rank_rtol", 1e-5)),
+        )
+
     spectra = {}
     spectra_path = output / "spectra.npz"
     if spectra_path.exists():
@@ -590,7 +1010,16 @@ def main():
             spectra.update({key: existing[key] for key in existing.files})
     if args.part in ("all", "a") and config.get("part_a", {}).get("enabled", True):
         run_part_a(
-            config, targets, target_names, anchor, extra_anchors, output, spectra
+            config,
+            targets,
+            target_names,
+            anchor,
+            extra_anchors,
+            retain_embeddings,
+            k2,
+            layer_weights,
+            output,
+            spectra,
         )
         np.savez_compressed(spectra_path, **spectra)
     if args.part in ("all", "b") and config.get("part_b", {}).get("enabled", True):

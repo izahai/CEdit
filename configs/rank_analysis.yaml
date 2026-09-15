@@ -1,4 +1,4 @@
-experiment_name: celebrity_rank_analysis
+experiment_name: celebrity_rank_direction_analysis
 sd_ckpt: CompVis/stable-diffusion-v1-4
 
 dataset:
@@ -18,10 +18,15 @@ runtime:
 
 part_a:
   enabled: true
-  target_counts: [5, 10, 20, 50, 100]
+  target_counts: [1, 2, 5, 10, 20, 50, 100]
   subset_seeds: [0, 1, 2, 3, 4]
   tgprs_ranks: [5, 10, 30]
   numerical_rank_rtol: 1.0e-5
+  delta_rank:
+    enabled: true
+    threshold: 0.1
+    retain_scale: 0.1
+    lamb: 0.0
 
 part_b:
   enabled: true
@@ -29,9 +34,17 @@ part_b:
   target_seed: 0
   ranks: [1, 2, 5, 10, 20, 30, 50, 100]
   random_seeds: [0, 1, 2, 3, 4]
+  retain_thresholds: [0.1, 1.5, 2.0, 3.0, 5.0, 10.0]
   retain_scales: [0.01, 0.03, 0.05, 0.1, 0.3, 1.0]
   numerical_rank_rtol: 1.0e-5
   compute_delta_spectrum: false
+  direction_ablations:
+    enabled: true
+  full_speed_robustness:
+    enabled: true
+    tgprs_ranks: [5, 10, 30]
+    aug_num: 10
+    filter_enabled: true
 
 retain:
   path: data/100_celebrity.csv
@@ -43,3 +56,9 @@ retain:
 
 output:
   root: logs/rank_analysis
+
+common_anchor_figure:
+  enabled: true
+  target_count: 10
+  seed: 0
+  numerical_rank_rtol: 1.0e-5

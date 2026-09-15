@@ -106,6 +106,81 @@ def random_rank_residuals(legacy_residuals, rank, seed, eps=1e-8):
     return norm_match_rows(projected, legacy, eps=eps, fallback_basis=basis)
 
 
+def projected_target_residuals(
+    target_embeddings,
+    legacy_residuals,
+    basis,
+    rank,
+    sign=-1.0,
+    complement=False,
+    eps=1e-8,
+):
+    """Build norm-matched residuals from signed target projections."""
+    targets = _as_matrix(target_embeddings, "target_embeddings")
+    legacy = _as_matrix(legacy_residuals, "legacy_residuals")
+    basis = _as_matrix(basis, "basis")
+    if targets.shape != legacy.shape or basis.shape[1] != targets.shape[1]:
+        raise ValueError("Incompatible target, residual, or basis shapes")
+    if isinstance(rank, bool) or not isinstance(rank, int) or rank <= 0:
+        raise ValueError("rank must be a positive integer")
+    if sign not in (-1.0, 1.0):
+        raise ValueError("sign must be either -1.0 or 1.0")
+    realized_basis_rank = min(rank, basis.shape[0])
+    selected = basis[:realized_basis_rank]
+    projected_targets = (targets @ selected.T) @ selected
+    projected_legacy = (legacy @ selected.T) @ selected
+    primary = targets - projected_targets if complement else projected_targets
+    fallback_legacy = legacy - projected_legacy if complement else projected_legacy
+    primary_norms = torch.linalg.vector_norm(primary, dim=1)
+    legacy_norms = torch.linalg.vector_norm(fallback_legacy, dim=1)
+    directions = float(sign) * primary
+    primary_fallback = primary_norms <= eps
+    use_legacy = primary_fallback & (legacy_norms > eps)
+    use_basis = primary_fallback & ~use_legacy
+    directions[use_legacy] = float(sign) * fallback_legacy[use_legacy]
+    fallback = selected
+    if complement:
+        projector_diagonal = 1.0 - selected.square().sum(dim=0)
+        coordinate = int(projector_diagonal.argmax())
+        complement_vector = targets.new_zeros(targets.shape[1])
+        complement_vector[coordinate] = 1.0
+        complement_vector = complement_vector - (
+            (complement_vector @ selected.T) @ selected
+        )
+        fallback = complement_vector.unsqueeze(0)
+    directions[use_basis] = float(sign) * fallback[0]
+    residuals = norm_match_rows(
+        directions, legacy, eps=eps, fallback_basis=fallback
+    )
+    return residuals, {
+        "requested_rank": int(rank),
+        "basis_rank": int(realized_basis_rank),
+        "projection_sign": float(sign),
+        "uses_complement": bool(complement),
+        "target_projection_fallback_count": int(primary_fallback.sum()),
+        "legacy_fallback_count": int(use_legacy.sum()),
+        "basis_fallback_count": int(use_basis.sum()),
+    }
+
+
+def random_negative_target_residuals(
+    target_embeddings, legacy_residuals, rank, seed, eps=1e-8
+):
+    """Apply -P_random t with a seeded rank-q orthonormal basis."""
+    targets = _as_matrix(target_embeddings, "target_embeddings")
+    generator = torch.Generator(device=targets.device)
+    generator.manual_seed(int(seed))
+    random_matrix = torch.randn(
+        targets.shape[1], rank, generator=generator, device=targets.device
+    )
+    basis = torch.linalg.qr(random_matrix, mode="reduced").Q.T
+    residuals, diagnostics = projected_target_residuals(
+        targets, legacy_residuals, basis, rank, sign=-1.0, eps=eps
+    )
+    diagnostics["basis_seed"] = int(seed)
+    return residuals, diagnostics
+
+
 def build_tgprs_basis(target_embeddings, extra_anchor_embeddings, max_rank, eps=1e-8):
     """Build one normalized pairwise basis that can be sliced for many ranks."""
     targets = _as_matrix(target_embeddings, "target_embeddings")
@@ -134,33 +209,15 @@ def tgprs_residuals_from_basis(
     eps=1e-8,
 ):
     """Apply the TGPRS direction -P_S t with legacy per-target magnitudes."""
-    targets = _as_matrix(target_embeddings, "target_embeddings")
-    legacy = _as_matrix(legacy_residuals, "legacy_residuals")
-    basis = _as_matrix(basis, "basis")
-    if targets.shape != legacy.shape or basis.shape[1] != targets.shape[1]:
-        raise ValueError("Incompatible target, residual, or basis shapes")
-    if isinstance(rank, bool) or not isinstance(rank, int) or rank <= 0:
-        raise ValueError("rank must be a positive integer")
-    realized_basis_rank = min(rank, basis.shape[0])
-    selected = basis[:realized_basis_rank]
-    projected_targets = (targets @ selected.T) @ selected
-    projected_legacy = (legacy @ selected.T) @ selected
-    target_norms = torch.linalg.vector_norm(projected_targets, dim=1)
-    legacy_norms = torch.linalg.vector_norm(projected_legacy, dim=1)
-    directions = -projected_targets
-    target_fallback = target_norms <= eps
-    use_legacy = target_fallback & (legacy_norms > eps)
-    use_basis = target_fallback & ~use_legacy
-    directions[use_legacy] = projected_legacy[use_legacy]
-    directions[use_basis] = selected[0]
-    residuals = norm_match_rows(directions, legacy, eps=eps, fallback_basis=selected)
-    return residuals, {
-        "requested_rank": int(rank),
-        "basis_rank": int(realized_basis_rank),
-        "target_projection_fallback_count": int(target_fallback.sum()),
-        "legacy_fallback_count": int(use_legacy.sum()),
-        "basis_fallback_count": int(use_basis.sum()),
-    }
+    return projected_target_residuals(
+        target_embeddings,
+        legacy_residuals,
+        basis,
+        rank,
+        sign=-1.0,
+        complement=False,
+        eps=eps,
+    )
 
 
 def edit_statistic(residuals, targets):
@@ -183,6 +240,82 @@ def retain_low_projection(retain_embeddings, threshold):
     mask = singular_values < float(threshold)
     projection = u[:, mask] @ u[:, mask].T
     return projection, singular_values, int(mask.sum())
+
+
+def retain_eigensystem(retain_embeddings):
+    """Return SPEED's retain covariance eigenvectors and singular values."""
+    covariance = second_moment(retain_embeddings)
+    u, singular_values, _ = torch.linalg.svd(covariance)
+    return u, singular_values
+
+
+def retain_projection_from_eigensystem(u, singular_values, threshold):
+    """Construct a retain-low projector from a cached eigensystem."""
+    mask = singular_values < float(threshold)
+    projection = u[:, mask] @ u[:, mask].T
+    return projection, int(mask.sum())
+
+
+def speed_retain_construction(
+    retain_embeddings,
+    layer_weight,
+    statistic,
+    target_second_moment,
+    aug_num=10,
+    filter_enabled=True,
+    seed=0,
+    eps=1e-8,
+):
+    """Reproduce SPEED's layer-specific hard-retain construction."""
+    retain = _as_matrix(retain_embeddings, "retain_embeddings")
+    weight = layer_weight.float()
+    statistic = statistic.float()
+    target_second_moment = target_second_moment.float()
+    identity = torch.eye(target_second_moment.shape[0], device=retain.device)
+    erase_weight = weight @ statistic @ torch.linalg.inv(
+        identity + target_second_moment
+    )
+    responses = torch.linalg.vector_norm(retain @ erase_weight.T, dim=1)
+    if filter_enabled:
+        selected = retain[responses > responses.mean()]
+    else:
+        selected = retain
+    if selected.shape[0] == 0:
+        raise ValueError("SPEED retain filtering removed every retain embedding")
+
+    augmented = selected.new_empty((0, selected.shape[1]))
+    if int(aug_num) > 0:
+        _, _, vh = torch.linalg.svd(weight, full_matrices=False)
+        weakest = vh[-1]
+        generator = torch.Generator(device=selected.device)
+        generator.manual_seed(int(seed))
+        candidates = []
+        for _ in range(int(aug_num)):
+            noise = torch.randn(
+                selected.shape,
+                generator=generator,
+                device=selected.device,
+                dtype=selected.dtype,
+            )
+            perturbation = (noise @ weakest).unsqueeze(1) * weakest.unsqueeze(0)
+            candidates.append(selected + perturbation)
+        candidates = torch.cat(candidates, dim=0)
+        candidate_responses = torch.linalg.vector_norm(
+            candidates @ erase_weight.T, dim=1
+        )
+        augmented = candidates[
+            candidate_responses > candidate_responses.mean().clamp_min(eps)
+        ]
+    constructed = torch.cat([selected, augmented], dim=0)
+    return constructed, {
+        "retain_original_count": int(retain.shape[0]),
+        "retain_filtered_count": int(selected.shape[0]),
+        "retain_augmented_count": int(augmented.shape[0]),
+        "retain_constructed_count": int(constructed.shape[0]),
+        "retain_aug_num": int(aug_num),
+        "retain_filter_enabled": bool(filter_enabled),
+        "retain_seed": int(seed),
+    }
 
 
 def speed_right_factor(
@@ -216,6 +349,63 @@ def speed_delta_weight(layer_weight, statistic, right_factor):
     return layer_weight.float() @ statistic.float() @ right_factor.float()
 
 
+def speed_delta_weight_low_rank(layer_weight, residuals, targets, right_factor):
+    """Evaluate W R^T T A / N without materializing the d-by-d statistic."""
+    weight = layer_weight.float()
+    residuals = _as_matrix(residuals, "residuals")
+    targets = _as_matrix(targets, "targets")
+    if residuals.shape != targets.shape:
+        raise ValueError("residuals and targets must have the same shape")
+    transformed_targets = (
+        targets @ right_factor.float() / targets.shape[0]
+    )
+    return speed_delta_weight_from_target_factor(
+        weight, residuals, transformed_targets
+    )
+
+
+def speed_delta_weight_from_target_factor(
+    layer_weight, residuals, transformed_targets
+):
+    """Evaluate (W R^T)(T A / N) with a cached target-side factor."""
+    weight = layer_weight.float()
+    residuals = _as_matrix(residuals, "residuals")
+    transformed = _as_matrix(transformed_targets, "transformed_targets")
+    if transformed.shape[0] != residuals.shape[0]:
+        raise ValueError("residuals and transformed_targets must share a batch")
+    return (weight @ residuals.T) @ transformed
+
+
+def low_rank_delta_spectrum(layer_weight, residuals, targets, right_factor):
+    """Compute singular values of W R^T T A / N through a small core."""
+    residuals = _as_matrix(residuals, "residuals")
+    targets = _as_matrix(targets, "targets")
+    if residuals.shape != targets.shape:
+        raise ValueError("residuals and targets must have the same shape")
+    transformed_targets = (
+        targets @ right_factor.float() / targets.shape[0]
+    )
+    return low_rank_delta_spectrum_from_target_factor(
+        layer_weight, residuals, transformed_targets
+    )
+
+
+def low_rank_delta_spectrum_from_target_factor(
+    layer_weight, residuals, transformed_targets
+):
+    """Compute update singular values with a cached T A / N factor."""
+    weight = layer_weight.float()
+    residuals = _as_matrix(residuals, "residuals")
+    transformed = _as_matrix(transformed_targets, "transformed_targets")
+    if transformed.shape[0] != residuals.shape[0]:
+        raise ValueError("residuals and transformed_targets must share a batch")
+    left = weight @ residuals.T
+    right = transformed.T
+    _, left_r = torch.linalg.qr(left, mode="reduced")
+    _, right_r = torch.linalg.qr(right, mode="reduced")
+    return torch.linalg.svdvals(left_r @ right_r.T)
+
+
 def _row_cosine(left, right, eps):
     numerator = (left * right).sum(dim=1)
     denominator = (
@@ -231,6 +421,8 @@ def layer_edit_metrics(
     targets,
     residuals,
     retain_embeddings,
+    anchor_embeddings=None,
+    canonical_residuals=None,
     eps=1e-8,
 ):
     """Measure target intervention, retain leakage, and residual realization."""
@@ -260,7 +452,7 @@ def layer_edit_metrics(
         torch.linalg.vector_norm(target_change - desired_change, dim=1)
         / torch.linalg.vector_norm(desired_change, dim=1).clamp_min(eps)
     )
-    return {
+    metrics = {
         "target_effect": float(target_effect.mean()),
         "target_rotation_deg": float(
             torch.rad2deg(torch.acos(rotation_cosine)).mean()
@@ -270,6 +462,28 @@ def layer_edit_metrics(
         "directional_relative_error": float(directional_error.mean()),
         "delta_frobenius_norm": float(torch.linalg.vector_norm(delta)),
     }
+    metrics["edited_output_norm_ratio"] = float(
+        (
+            torch.linalg.vector_norm(edited_target, dim=1)
+            / torch.linalg.vector_norm(base_target, dim=1).clamp_min(eps)
+        ).mean()
+    )
+    if canonical_residuals is not None:
+        canonical = _as_matrix(canonical_residuals, "canonical_residuals")
+        canonical_change = canonical @ weight.T
+        metrics["canonical_erasure_alignment"] = float(
+            _row_cosine(target_change, canonical_change, eps).mean()
+        )
+    if anchor_embeddings is not None:
+        anchors = _as_matrix(anchor_embeddings, "anchor_embeddings")
+        base_anchor = anchors @ weight.T
+        metrics["anchor_distance_ratio"] = float(
+            (
+                torch.linalg.vector_norm(edited_target - base_anchor, dim=1)
+                / torch.linalg.vector_norm(base_target - base_anchor, dim=1).clamp_min(eps)
+            ).mean()
+        )
+    return metrics
 
 
 def aggregate_layer_metrics(rows):
@@ -283,8 +497,12 @@ def aggregate_layer_metrics(rows):
         "directional_realization_cosine",
         "directional_relative_error",
         "delta_frobenius_norm",
+        "edited_output_norm_ratio",
+        "canonical_erasure_alignment",
+        "anchor_distance_ratio",
     )
     return {
         f"{name}_mean": sum(float(row[name]) for row in rows) / len(rows)
         for name in metric_names
+        if all(name in row for row in rows)
     }

@@ -7,9 +7,17 @@ from src.rank_analysis import (
     build_tgprs_basis,
     edit_statistic,
     layer_edit_metrics,
+    low_rank_delta_spectrum,
+    projected_target_residuals,
+    random_negative_target_residuals,
     random_rank_residuals,
+    retain_eigensystem,
+    retain_projection_from_eigensystem,
     spectral_metrics,
     speed_delta_weight,
+    speed_delta_weight_from_target_factor,
+    speed_delta_weight_low_rank,
+    speed_retain_construction,
     speed_right_factor,
     tgprs_residuals_from_basis,
     truncated_svd_residuals,
@@ -84,6 +92,44 @@ class ResidualControlTests(unittest.TestCase):
             rtol=1e-5,
             atol=1e-5,
         )
+
+    def test_signed_projection_and_complement_are_orthogonal(self):
+        targets = torch.randn(6, 12)
+        basis = torch.linalg.qr(torch.randn(12, 4), mode="reduced").Q.T
+        negative, _ = projected_target_residuals(
+            targets, self.legacy[:6], basis, rank=4, sign=-1.0
+        )
+        positive, _ = projected_target_residuals(
+            targets, self.legacy[:6], basis, rank=4, sign=1.0
+        )
+        complement, _ = projected_target_residuals(
+            targets,
+            self.legacy[:6],
+            basis,
+            rank=4,
+            sign=-1.0,
+            complement=True,
+        )
+        torch.testing.assert_close(negative, -positive)
+        self.assertLessEqual(int(torch.linalg.matrix_rank(negative)), 4)
+        torch.testing.assert_close(
+            complement @ basis.T,
+            torch.zeros(6, 4),
+            rtol=1e-4,
+            atol=1e-4,
+        )
+
+    def test_random_negative_target_is_seeded_and_rank_bounded(self):
+        targets = torch.randn(8, 12)
+        first, _ = random_negative_target_residuals(
+            targets, self.legacy, rank=3, seed=19
+        )
+        second, _ = random_negative_target_residuals(
+            targets, self.legacy, rank=3, seed=19
+        )
+        torch.testing.assert_close(first, second)
+        self.assertLessEqual(int(torch.linalg.matrix_rank(first)), 3)
+        self.assert_norm_matched(first)
         torch.testing.assert_close(
             torch.linalg.vector_norm(residuals, dim=1),
             torch.linalg.vector_norm(legacy, dim=1),
@@ -126,6 +172,79 @@ class SpeedAnalysisTests(unittest.TestCase):
         self.assertAlmostEqual(metrics["target_effect"], 0.0)
         self.assertAlmostEqual(metrics["target_rotation_deg"], 0.0)
         self.assertAlmostEqual(metrics["retain_leakage"], 0.0)
+
+    def test_low_rank_delta_spectrum_matches_full_svd(self):
+        torch.manual_seed(23)
+        weight = torch.randn(7, 9)
+        targets = torch.randn(5, 9)
+        residuals = torch.randn(5, 9)
+        factor = torch.randn(9, 9)
+        statistic = edit_statistic(residuals, targets)
+        delta = speed_delta_weight(weight, statistic, factor)
+        actual = low_rank_delta_spectrum(weight, residuals, targets, factor)
+        expected = torch.linalg.svdvals(delta)[:actual.numel()]
+        torch.testing.assert_close(actual, expected, rtol=1e-4, atol=1e-5)
+        torch.testing.assert_close(
+            speed_delta_weight_low_rank(weight, residuals, targets, factor),
+            delta,
+            rtol=1e-4,
+            atol=1e-5,
+        )
+        torch.testing.assert_close(
+            speed_delta_weight_from_target_factor(
+                weight, residuals, targets @ factor / targets.shape[0]
+            ),
+            delta,
+            rtol=1e-4,
+            atol=1e-5,
+        )
+        residual_rank = int(torch.linalg.matrix_rank(residuals))
+        statistic_rank = int(torch.linalg.matrix_rank(statistic))
+        delta_rank = int(torch.linalg.matrix_rank(delta))
+        self.assertLessEqual(statistic_rank, residual_rank)
+        self.assertLessEqual(delta_rank, statistic_rank)
+
+    def test_retain_projector_rank_is_monotonic(self):
+        retain = torch.diag(torch.tensor([4.0, 2.0, 1.0, 0.1]))
+        u, singular_values = retain_eigensystem(retain)
+        low, low_rank = retain_projection_from_eigensystem(
+            u, singular_values, 0.5
+        )
+        high, high_rank = retain_projection_from_eigensystem(
+            u, singular_values, 5.0
+        )
+        self.assertLessEqual(low_rank, high_rank)
+        torch.testing.assert_close(low, low.T)
+        torch.testing.assert_close(high, high.T)
+
+    def test_speed_retain_construction_is_deterministic(self):
+        torch.manual_seed(29)
+        retain = torch.randn(10, 6)
+        weight = torch.randn(4, 6)
+        statistic = torch.randn(6, 6)
+        covariance = torch.eye(6)
+        first, first_info = speed_retain_construction(
+            retain, weight, statistic, covariance, aug_num=2, seed=31
+        )
+        second, second_info = speed_retain_construction(
+            retain, weight, statistic, covariance, aug_num=2, seed=31
+        )
+        torch.testing.assert_close(first, second)
+        self.assertEqual(first_info, second_info)
+        self.assertEqual(first.shape[0], first_info["retain_constructed_count"])
+
+    def test_zero_augmentation_without_filter_preserves_retain_set(self):
+        retain = torch.randn(10, 6)
+        constructed, info = speed_retain_construction(
+            retain,
+            torch.randn(4, 6),
+            torch.randn(6, 6),
+            torch.eye(6),
+            aug_num=0,
+            filter_enabled=False,
+        )
+        torch.testing.assert_close(constructed, retain)
+        self.assertEqual(info["retain_augmented_count"], 0)
 
     def test_aggregate_layer_metrics(self):
         names = (
