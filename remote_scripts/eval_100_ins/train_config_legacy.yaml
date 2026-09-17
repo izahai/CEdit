@@ -1,0 +1,11 @@
+sd_ckpt: CompVis/stable-diffusion-v1-4
+seed: 0
+anchor_mode: legacy
+anchor_concepts: ""
+baseline: SPEED
+params: V
+erase_style: false
+aug_num: 10
+threshold: 0.1
+retain_scale: 1.0
+heads: concept

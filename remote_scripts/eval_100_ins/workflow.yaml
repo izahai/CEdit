@@ -1,0 +1,20 @@
+runtime:
+  python_bin: /venv/main/bin/python
+  gpu_id: 0
+experiment:
+  sd_ckpt: CompVis/stable-diffusion-v1-4
+  clip_model: openai/clip-vit-large-patch14
+  seed: 0
+  instance_templates:
+    - "An image of {concept}."
+    - "An illustration of {concept}."
+  sample_seeds: [0]
+  sample_variants_per_seed: 1
+  inference_steps: 20
+  guidance_scale: 7.5
+  mscoco_prompts: 100
+  clip_batch_size: 32
+  bootstrap_replicates: 2000
+training:
+  legacy: train_config_legacy.yaml
+  target_global_pairwise_residual_subspace: train_config_target_global_pairwise_residual_subspace.yaml

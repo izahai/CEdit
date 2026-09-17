@@ -1,0 +1,13 @@
+sd_ckpt: CompVis/stable-diffusion-v1-4
+seed: 0
+anchor_mode: target_global_pairwise_residual_subspace
+anchor_concepts: ""
+baseline: SPEED
+params: V
+erase_style: false
+aug_num: 0
+threshold: 0.1
+retain_scale: 1.0
+heads: concept
+residual_rank: 30
+subspace_anchor_concepts: [""]
