@@ -123,6 +123,15 @@ def build_argument_parser():
         help='Rank retained by truncated-SVD residual subspace modes',
     )
     parser.add_argument(
+        '--target_projection_direction',
+        choices=('negative', 'positive'),
+        default='negative',
+        help=(
+            'Direction of the target projection used by '
+            'target_global_pairwise_residual_subspace'
+        ),
+    )
+    parser.add_argument(
         '--residual_top_k',
         type=int,
         default=1,
@@ -284,6 +293,7 @@ def build_target_anchor_statistics(
     subspace_concept_embeddings=None,
     subspace_anchor_embeddings=None,
     retain_projection=None,
+    target_projection_direction="negative",
 ):
     if not target_embeddings or len(target_embeddings) != len(anchor_embeddings):
         raise ValueError("Target and anchor embeddings must be non-empty and have the same length")
@@ -466,6 +476,7 @@ def build_target_anchor_statistics(
                 anchor_embeddings,
                 extra_anchor_embeddings=subspace_anchor_embeddings,
                 rank=residual_rank,
+                target_projection_direction=target_projection_direction,
             )
         )
     elif anchor_mode == "mean_norm_target_global_pairwise_residual_subspace":
@@ -665,6 +676,11 @@ def edit_model(
         residual_top_k=getattr(args, 'residual_top_k', 1),
         subspace_concept_embeddings=subspace_concept_embeddings,
         subspace_anchor_embeddings=subspace_anchor_embeddings,
+        target_projection_direction=getattr(
+            args,
+            'target_projection_direction',
+            'negative',
+        ),
     )
     print(
         f"Anchor mode: {anchor_mode} | "
@@ -703,6 +719,11 @@ def edit_model(
             f"{resolved_subspace_anchors!r} | "
             f"residual matrix={residual_shape}"
         )
+        if anchor_mode == "target_global_pairwise_residual_subspace":
+            print(
+                "Target projection direction: "
+                f"{anchor_diagnostics['subspace_target_projection_direction']}"
+            )
         if anchor_mode == "mean_norm_target_global_pairwise_residual_subspace":
             print(
                 "Per-target mean global residual norm: "
@@ -1053,6 +1074,8 @@ if __name__ == '__main__':
             f'-target_global_pairwise_residual_subspace_rank_'
             f'{args.residual_rank}'
         )
+        if args.target_projection_direction == 'positive':
+            file_suffix += '-positive_projection'
     elif args.anchor_mode == 'mean_norm_target_global_pairwise_residual_subspace':
         file_suffix += (
             f'-mean_norm_target_global_pairwise_residual_subspace_rank_'

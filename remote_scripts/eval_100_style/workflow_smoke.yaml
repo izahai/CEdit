@@ -1,0 +1,28 @@
+runtime:
+  python_bin: /venv/main/bin/python
+  gpu_id: 0
+experiment:
+  sd_ckpt: CompVis/stable-diffusion-v1-4
+  clip_model: openai/clip-vit-large-patch14
+  seed: 0
+  style_templates:
+    - "An image in the style of {artist}."
+    - "A portrait in the style of {artist}."
+    - "A landscape in the style of {artist}."
+    - "A city street in the style of {artist}."
+    - "A still life in the style of {artist}."
+  sample_seeds: [0]
+  style_prompts_per_artist: 5
+  sample_variants_per_seed: 1
+  inference_steps: 20
+  guidance_scale: 7.5
+  mscoco_prompts: 8
+  clip_batch_size: 8
+  fid_batch_size: 8
+  fid_feature_layer: 64
+  bootstrap_replicates: 200
+  smoke_erase_artists: 3
+  smoke_retain_artists: 3
+training:
+  legacy: train_config_legacy.yaml
+  target_global_pairwise_residual_subspace: train_config_target_global_pairwise_residual_subspace.yaml

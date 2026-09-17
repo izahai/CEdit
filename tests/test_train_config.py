@@ -121,6 +121,17 @@ class TrainConfigTests(unittest.TestCase):
         )
         self.assertIsNone(args.subspace_concepts_path)
 
+    def test_target_projection_direction_defaults_negative_and_accepts_positive(self):
+        _, default_args = parse_args([])
+        _, positive_args = parse_args(
+            ["--target_projection_direction", "positive"]
+        )
+
+        self.assertEqual(default_args.target_projection_direction, "negative")
+        self.assertEqual(positive_args.target_projection_direction, "positive")
+        with self.assertRaises(SystemExit):
+            parse_args(["--target_projection_direction", "sideways"])
+
     def test_accepts_norm_matched_truncated_svd_mode(self):
         _, args = parse_args(
             [

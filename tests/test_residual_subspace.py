@@ -236,6 +236,51 @@ class GlobalPairwiseResidualSubspaceTests(unittest.TestCase):
 
 
 class TargetGlobalPairwiseResidualSubspaceTests(unittest.TestCase):
+    def test_supports_opposite_target_projection_directions(self):
+        targets = torch.tensor(
+            [[[3.0, 0.0, 0.0]], [[2.0, 0.0, 0.0]]]
+        )
+        legacy = torch.tensor(
+            [[[0.0, 2.0, 0.0]], [[0.0, 0.0, 3.0]]]
+        )
+        extra_anchors = torch.tensor(
+            [[[0.0, 0.0, 0.0]], [[4.0, 0.0, 0.0]]]
+        )
+
+        negative, negative_diagnostics = (
+            build_target_global_pairwise_residual_subspace_residuals(
+                targets,
+                targets + legacy,
+                extra_anchor_embeddings=extra_anchors,
+                rank=1,
+            )
+        )
+        positive, positive_diagnostics = (
+            build_target_global_pairwise_residual_subspace_residuals(
+                targets,
+                targets + legacy,
+                extra_anchor_embeddings=extra_anchors,
+                rank=1,
+                target_projection_direction="positive",
+            )
+        )
+
+        torch.testing.assert_close(positive, -negative)
+        torch.testing.assert_close(
+            positive.norm(dim=2),
+            legacy.norm(dim=2),
+        )
+        self.assertLess(negative_diagnostics["subspace_max_projection_error"], 1e-6)
+        self.assertLess(positive_diagnostics["subspace_max_projection_error"], 1e-6)
+        self.assertEqual(
+            negative_diagnostics["subspace_target_projection_direction"],
+            "negative",
+        )
+        self.assertEqual(
+            positive_diagnostics["subspace_target_projection_direction"],
+            "positive",
+        )
+
     def test_retain_aware_mode_projects_raw_residuals_before_normalization(self):
         targets = torch.tensor(
             [[[1.0, 0.0, 1.0]], [[0.0, 2.0, 2.0]]]

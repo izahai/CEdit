@@ -1,0 +1,32 @@
+runtime:
+  python_bin: /venv/main/bin/python
+  gpu_id: 0
+
+repositories:
+  ce_eval_repository: https://github.com/izahai/CE-Eval.git
+  ce_eval_branch: main
+
+experiment:
+  target_a: Adam Driver
+  anchor_b: Adriana Lima
+  sd_ckpt: CompVis/stable-diffusion-v1-4
+  seed: 0
+  diffusion_steps: 50
+  guidance_scale: 7.5
+  prompt_templates:
+    - "A portrait of {}."
+    - "An image capturing {} at a public event."
+    - "An oil painting of {}."
+    - "A sketch of {}."
+    - "{} in an official photo."
+  samples_per_template: 4
+  sample_batch_size: 4
+  gcd_use_cuda: true
+  gcd_num_workers: 4
+  gcd_batch_size: 16
+  gcd_prefetch_factor: 2
+
+paths:
+  benchmark_csv: data/100_celebrity.csv
+  ce_eval_root: ${WORKSPACE_DIR}/CE-Eval
+  output_root: ${REPO_ROOT}/ablation/erase_A_anchor_B/outputs

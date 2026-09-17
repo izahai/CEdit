@@ -128,6 +128,41 @@ class TargetAnchorStatisticsTests(unittest.TestCase):
         self.assertEqual(diagnostics["target_global_subspace_residual_count"], 6)
         self.assertEqual(diagnostics["target_global_subspace_residual_shape"], (6, 3))
 
+    def test_target_global_mode_propagates_positive_projection_direction(self):
+        targets = [
+            torch.tensor([[3.0, 0.0, 0.0]]),
+            torch.tensor([[2.0, 0.0, 0.0]]),
+        ]
+        anchors = [
+            targets[0] + torch.tensor([[0.0, 2.0, 0.0]]),
+            targets[1] + torch.tensor([[0.0, 0.0, 3.0]]),
+        ]
+        fixed_anchors = torch.tensor(
+            [[[0.0, 0.0, 0.0]], [[4.0, 0.0, 0.0]]]
+        )
+
+        _, negative_delta, _ = build_target_anchor_statistics(
+            targets,
+            anchors,
+            anchor_mode="target_global_pairwise_residual_subspace",
+            residual_rank=1,
+            subspace_anchor_embeddings=fixed_anchors,
+        )
+        _, positive_delta, diagnostics = build_target_anchor_statistics(
+            targets,
+            anchors,
+            anchor_mode="target_global_pairwise_residual_subspace",
+            residual_rank=1,
+            subspace_anchor_embeddings=fixed_anchors,
+            target_projection_direction="positive",
+        )
+
+        torch.testing.assert_close(positive_delta, -negative_delta)
+        self.assertEqual(
+            diagnostics["subspace_target_projection_direction"],
+            "positive",
+        )
+
     def test_global_pairwise_mode_uses_external_concept_embeddings(self):
         targets = [torch.tensor([[3.0, 4.0, 0.0]])]
         anchors = [torch.tensor([[3.0, 6.0, 0.0]])]

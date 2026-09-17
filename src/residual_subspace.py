@@ -480,8 +480,9 @@ def build_global_pairwise_residual_subspace_residuals(
     eps=1e-8,
     residual_input_projection=None,
     magnitude_mode="legacy",
+    target_projection_direction="negative",
 ):
-    """Build negative-target residuals from a global pairwise residual basis."""
+    """Build signed target residuals from a global pairwise residual basis."""
     if target_embeddings.ndim < 2:
         raise ValueError("Target embeddings must include a batch dimension")
     if target_embeddings.shape != anchor_embeddings.shape:
@@ -502,6 +503,11 @@ def build_global_pairwise_residual_subspace_residuals(
     )
     if magnitude_mode not in {"legacy", "source_mean"}:
         raise ValueError(f"Invalid residual magnitude mode: {magnitude_mode}")
+    if target_projection_direction not in {"negative", "positive"}:
+        raise ValueError(
+            "Target projection direction must be 'negative' or 'positive', got "
+            f"{target_projection_direction!r}"
+        )
     if (
         magnitude_mode == "source_mean"
         and concept_embeddings.shape[0] != target_embeddings.shape[0]
@@ -550,7 +556,9 @@ def build_global_pairwise_residual_subspace_residuals(
     flattened_residuals, direction_diagnostics = _build_norm_matched_directions(
         context,
         primary_vectors=flattened_targets,
-        primary_sign=-1.0,
+        primary_sign=(
+            -1.0 if target_projection_direction == "negative" else 1.0
+        ),
         eps=eps,
     )
 
@@ -565,6 +573,7 @@ def build_global_pairwise_residual_subspace_residuals(
         "global_subspace_residual_count": int(global_residuals.shape[0]),
         "global_subspace_residual_shape": tuple(global_residuals.shape),
         "subspace_magnitude_mode": magnitude_mode,
+        "subspace_target_projection_direction": target_projection_direction,
         "subspace_legacy_cosine_mean": _cosine_with_shift(
             flattened_targets, flattened_legacy, eps
         ).mean().item(),
@@ -591,6 +600,7 @@ def build_target_global_pairwise_residual_subspace_residuals(
     extra_anchor_embeddings,
     rank,
     eps=1e-8,
+    target_projection_direction="negative",
 ):
     """Build a global residual basis using only targets and fixed anchors."""
     residuals, diagnostics = build_global_pairwise_residual_subspace_residuals(
@@ -600,6 +610,7 @@ def build_target_global_pairwise_residual_subspace_residuals(
         extra_anchor_embeddings=extra_anchor_embeddings,
         rank=rank,
         eps=eps,
+        target_projection_direction=target_projection_direction,
     )
     diagnostics.update({
         "target_global_subspace_target_count": diagnostics[
