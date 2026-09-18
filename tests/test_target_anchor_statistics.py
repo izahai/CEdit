@@ -5,18 +5,21 @@ import unittest
 import torch
 
 
+import importlib.machinery
+
+
 def _install_optional_dependency_stubs():
-    pandas = types.ModuleType("pandas")
-    tqdm_module = types.ModuleType("tqdm")
-    tqdm_module.tqdm = lambda values, **_: values
-    kmeans_module = types.ModuleType("kmeans_pytorch")
-    kmeans_module.kmeans = None
-    diffusers = types.ModuleType("diffusers")
-    diffusers.StableDiffusionPipeline = object
-    sys.modules.setdefault("pandas", pandas)
-    sys.modules.setdefault("tqdm", tqdm_module)
-    sys.modules.setdefault("kmeans_pytorch", kmeans_module)
-    sys.modules.setdefault("diffusers", diffusers)
+    for name in ("pandas", "tqdm", "kmeans_pytorch", "diffusers"):
+        if name not in sys.modules:
+            stub = types.ModuleType(name)
+            stub.__spec__ = importlib.machinery.ModuleSpec(name, None)
+            if name == "tqdm":
+                stub.tqdm = lambda values, **_: values
+            elif name == "kmeans_pytorch":
+                stub.kmeans = None
+            elif name == "diffusers":
+                stub.StableDiffusionPipeline = object
+            sys.modules[name] = stub
 
 
 _install_optional_dependency_stubs()
@@ -273,6 +276,24 @@ class TargetAnchorStatisticsTests(unittest.TestCase):
         self.assertEqual(diagnostics["subspace_requested_top_k"], 2)
         self.assertIn("subspace_new_anchor_cosine_mean", diagnostics)
         self.assertEqual(diagnostics["subspace_anchor_projection_fallback_count"], 0)
+
+    def test_zero_anchor_produces_negative_target_outer_product(self):
+        targets = [
+            torch.tensor([[1.0, 2.0, 3.0]]),
+            torch.tensor([[4.0, -1.0, 2.0]]),
+        ]
+        zero_anchors = [torch.zeros_like(t) for t in targets]
+
+        sum_target_target, target_anchor_delta, diagnostics = (
+            build_target_anchor_statistics(
+                targets,
+                zero_anchors,
+                anchor_mode="legacy",
+            )
+        )
+
+        torch.testing.assert_close(target_anchor_delta, -sum_target_target)
+        self.assertEqual(diagnostics["residual_rank"], 2)
 
 
 if __name__ == "__main__":

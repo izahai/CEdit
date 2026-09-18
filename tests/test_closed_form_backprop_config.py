@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 from train_closed_form_backprop import (
+    is_zero_anchor_concept,
     load_prompt_csv,
     parse_args,
     resolve_prompts,
@@ -186,6 +187,23 @@ class ClosedFormBackpropConfigTests(unittest.TestCase):
             )
             validate_args(parser, args)
             self.assertFalse(args.use_null_retain_loss)
+
+    def test_zero_anchor_concept_parsing_and_detection(self):
+        self.assertTrue(is_zero_anchor_concept("<zero>"))
+        self.assertTrue(is_zero_anchor_concept("<ZERO>"))
+        self.assertFalse(is_zero_anchor_concept("zero"))
+        self.assertFalse(is_zero_anchor_concept(""))
+
+        cli = [
+            "--target_concepts", "Snoopy",
+            "--anchor_concepts", "<zero>",
+            "--retain_path", "data/instance.csv",
+            "--heads", "concept",
+        ]
+        parser, args = parse_args(cli)
+        targets, anchors = validate_args(parser, args)
+        self.assertEqual(targets, ["Snoopy"])
+        self.assertEqual(anchors, ["<zero>"])
 
 
 if __name__ == "__main__":

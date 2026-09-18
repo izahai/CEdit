@@ -109,6 +109,12 @@ def build_argument_parser():
     parser.add_argument('--params', type=str, default='V')
     parser.add_argument('--aug_num', type=int, default=10)
     parser.add_argument('--threshold', type=float, default=1e-1)
+    parser.add_argument(
+        '--retain_projection_rank',
+        type=int,
+        default=None,
+        help='Directly set the rank of the retain projection matrix (uses lowest singular vectors)',
+    )
     parser.add_argument('--retain_scale', type=float, default=1.0)
     parser.add_argument(
         '--residual_scale',
@@ -220,6 +226,11 @@ def normalize_subspace_anchor_concepts(value):
             'Every item in subspace_anchor_concepts must be a string'
         )
     return [concept.strip() for concept in concepts]
+
+
+def is_zero_anchor_concept(concept):
+    """Return True if concept specifies the literal zero embedding sentinel."""
+    return isinstance(concept, str) and concept.strip().lower() == '<zero>'
 
 
 def target_embedding_prompts(target_concepts, erase_style=False):
@@ -627,6 +638,16 @@ def edit_model(
         else:
             target_embs = target_embs[[(target_inputs.attention_mask[0].sum().item() - 2)], :]  # last subject token
             anchor_embs = anchor_embs[[(anchor_inputs.attention_mask[0].sum().item() - 2)], :]  # last subject token
+
+        if is_zero_anchor_concept(anchor_concepts[i]):
+            anchor_embs = torch.zeros_like(target_embs)
+        else:
+            anchor_inputs = get_token_id(anchor_concepts[i], pipeline.tokenizer, return_ids_only=False)
+            anchor_embs = pipeline.text_encoder(anchor_inputs.input_ids.to(device)).last_hidden_state[0]
+            if target_concepts == ['nudity']:
+                anchor_embs = anchor_embs[1:, :]  # all tokens
+            else:
+                anchor_embs = anchor_embs[[(anchor_inputs.attention_mask[0].sum().item() - 2)], :]  # last subject token
         target_embeddings.append(target_embs)
         anchor_embeddings.append(anchor_embs)
     anchor_mode = getattr(args, 'anchor_mode', 'legacy')
@@ -892,9 +913,16 @@ def edit_model(
 
         if baseline == 'SPEED':
             U, S, V = torch.svd(sum_ret_ret)
-            retain_low_mask = S < args.threshold
-            retain_low_rank = int(retain_low_mask.sum().item())
-            P = U[:, retain_low_mask] @ U[:, retain_low_mask].T
+            if getattr(args, 'retain_projection_rank', None) is not None:
+                retain_low_rank = min(args.retain_projection_rank, S.numel())
+                basis = U[:, -retain_low_rank:]
+                P = basis @ basis.T
+                cutoff_desc = f"retain_projection_rank={retain_low_rank}"
+            else:
+                retain_low_mask = S < args.threshold
+                retain_low_rank = int(retain_low_mask.sum().item())
+                P = U[:, retain_low_mask] @ U[:, retain_low_mask].T
+                cutoff_desc = f"threshold={args.threshold:g}"
             if not retain_projector_is_layer_independent or not retain_low_rank_logged:
                 layer_label = (
                     "shared"
@@ -904,7 +932,7 @@ def edit_model(
                 print(
                     "Retain-low projector: "
                     f"layer={layer_label} | "
-                    f"threshold={args.threshold:g} | "
+                    f"{cutoff_desc} | "
                     f"rank={retain_low_rank}/{S.numel()} | "
                     f"layer-independent={retain_projector_is_layer_independent}"
                 )
@@ -1044,11 +1072,15 @@ if __name__ == '__main__':
         anchor_concepts = anchor_concepts * len(target_concepts)
         if anchor_concepts[0] == "":
             file_suffix += '-to_null'
+        elif is_zero_anchor_concept(anchor_concepts[0]):
+            file_suffix += '-to_zero'
         else:
             file_suffix += f'-to_{anchor_concepts[0]}'
     else:
         assert len(target_concepts) == len(anchor_concepts)
         file_suffix += f'-to_{anchor_concepts[0]}_etc'
+        first_anchor = 'zero' if is_zero_anchor_concept(anchor_concepts[0]) else anchor_concepts[0]
+        file_suffix += f'-to_{first_anchor}_etc'
     if args.anchor_mode == 'shared_residual_mean':
         file_suffix += '-shared_residual_mean'
     elif args.anchor_mode == 'shared_residual_max_norm':

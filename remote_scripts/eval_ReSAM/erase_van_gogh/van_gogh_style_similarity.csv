@@ -1,0 +1,1735 @@
+rank,id,artist,similarity
+1,1645,Van Gogh,1.000000
+2,1369,Picasso,0.797589
+3,1132,Leonardo Da Vinci,0.748613
+4,1720,Yuumei,0.735197
+5,545,David Bowie,0.722276
+6,259,Aquirax Uno,0.718051
+7,319,Ayan Nag,0.707697
+8,1381,Pixar,0.707370
+9,1338,Paul Gauguin,0.705805
+10,1484,Salvador Dali,0.700610
+11,23,Adriaen van Ostade,0.700495
+12,386,Bob Ross,0.699078
+13,1112,Kuang Hong,0.698686
+14,1414,Rembrandt Van Rijn,0.698134
+15,705,Frida Kahlo,0.697325
+16,1266,Monet,0.690558
+17,914,Jan Van Eyck,0.690147
+18,778,Gustav Klimt,0.688655
+19,993,Johann Wolfgang von Goethe,0.684972
+20,1269,Muxxi,0.684738
+21,1707,Yang Jialun,0.683871
+22,911,Jan Brett,0.683828
+23,1372,Pierre-Auguste Renoir,0.676682
+24,66,Albert Koetsier,0.676364
+25,113,Alexander Kanoldt,0.675267
+26,1492,Sandro Botticelli,0.673353
+27,1056,Julius Horsthuis,0.672713
+28,1616,tokyogenso,0.670340
+29,913,Jan Pietersz Saenredam,0.669260
+30,658,Eugene Delacroix,0.668548
+31,24,Adriaen van Outrecht,0.667140
+32,119,Alexandre Cabanel,0.666450
+33,751,Giovanni da Udina,0.666077
+34,912,Jan Luyken,0.665860
+35,871,Istvan Banyai,0.665844
+36,655,Etienne Hebinger,0.665806
+37,309,August von Pettenkofen,0.665757
+38,71,Albert Robida,0.665421
+39,1158,Luca Boni,0.664750
+40,57,Albert Benois,0.664411
+41,241,Anton Domenico Gabbiani,0.664390
+42,465,Charles Schulz,0.663046
+43,399,Brenda Zlamany,0.662996
+44,67,Albert Kotin,0.662989
+45,17,Adam Paquette,0.661982
+46,844,Hou China,0.661922
+47,1703,Wolf Kahn,0.661595
+48,1458,Roberto Parada,0.660953
+49,61,Albert Eckhout,0.660567
+50,1063,Kapwani Kiwanga,0.659901
+51,77,Alberto Magnelli,0.659724
+52,1387,Quentin Tarantino,0.658050
+53,192,Andrew Whem,0.657478
+54,102,Alex Petruk,0.657346
+55,111,Alexander Fedosav,0.656526
+56,750,Giovanni Battista Venanzi,0.656278
+57,678,Fernando Herenu,0.656039
+58,123,Alexei Harlamoff,0.656021
+59,431,Cagnaccio Di San Pietro,0.655946
+60,1383,Posuka Demizu,0.655533
+61,33,Aggi Erguna,0.655365
+62,562,Death Burger,0.655042
+63,1543,Stan Lee,0.654962
+64,872,Itō Jakuchū,0.654956
+65,1655,Viktor Vasnetsov,0.652797
+66,1114,Kuno Veeber,0.652635
+67,110,Alexander Bogen,0.652586
+68,1285,Ni Chuanjing,0.652547
+69,1193,Maria Kreyn,0.652111
+70,433,Camille Pissarro,0.651849
+71,1575,Tan Zhi Hui,0.651747
+72,489,Christian Grajewski,0.651448
+73,1050,Julia Contacessi,0.650770
+74,19,Adolf Hirémy-Hirschl,0.650745
+75,629,Elliot Lilly,0.650716
+76,51,Alan Kenny,0.650516
+77,1292,Nicolas Mignard,0.650024
+78,533,Dao Le Trong,0.650021
+79,570,Diego Velázquez,0.649685
+80,171,Amédée Guillemin,0.649545
+81,488,Christian Dimitrov,0.649414
+82,783,Gustave Van de Woestijne,0.649045
+83,809,Heinz Edelmann,0.648554
+84,1384,Qian Xuan,0.647949
+85,1630,Toumas Korpi,0.647922
+86,598,Edgar Degas,0.647825
+87,916,Jane Graverol,0.647332
+88,38,Agostino Tassi,0.646817
+89,1669,Walt Disney,0.646681
+90,350,Benedetto Caliari,0.646017
+91,1449,Robert Neubecker,0.645395
+92,249,Antoni Gaudi,0.644719
+93,58,Albert Bierstadt,0.644551
+94,804,Hayao Miyazaki,0.644528
+95,85,Aleksey Savrasov,0.644497
+96,1379,Pieter Jansz Saenredam,0.644496
+97,413,Briana Mora,0.644390
+98,833,Hieronymus Bosch,0.644389
+99,687,Francisco De Goya,0.644278
+100,564,Derek Boshier,0.643506
+101,1461,Rodríguez ARS,0.642601
+102,755,Glen Orbik,0.642364
+103,89,Alessandro Barbucci,0.642202
+104,1111,Kris Kuksi,0.642009
+105,1478,Ruxing Gao,0.641438
+106,1108,Konstantin Korovin,0.641326
+107,1650,Victor Medina,0.640229
+108,748,Giovanni Battista Gaulli,0.639952
+109,745,Giorgio De Chirico,0.639773
+110,126,Alexis Gritchenko,0.639579
+111,416,Briton Rivière,0.639540
+112,1499,Sara Wollfalk,0.638295
+113,1162,Ludwig Mies van der Rohe,0.638266
+114,1096,Kevin Gnutzmans,0.637713
+115,1441,Robert Farkas,0.637600
+116,514,Costa Dvorezky,0.637328
+117,1577,Tari Márk Dávid,0.637035
+118,25,Adrian Donoghue,0.637014
+119,262,Arik Brauer,0.637008
+120,632,Emil Ferris,0.636763
+121,1346,Paulus Potter,0.635914
+122,21,Adolph Menzel,0.635891
+123,1522,Shinji Aramaki,0.635365
+124,317,Axel Törneman,0.635210
+125,1060,Józef Mehoffer,0.635170
+126,941,Jean-Louis Prevost,0.634799
+127,688,Francisco Martín,0.634763
+128,69,Albert Marquet,0.634590
+129,980,Joan Miró,0.634307
+130,1583,Terada Katsuya,0.634006
+131,463,Charles Liu,0.633776
+132,672,Fenghua Zhong,0.633491
+133,1562,Studio Ghibli,0.633460
+134,531,Daniele Afferni,0.633214
+135,79,Alberto Sughi,0.633155
+136,1258,Mikhail Vrubel,0.632898
+137,1719,Yuri Ivanovich Pimenov,0.632874
+138,858,Igor Wolski,0.632540
+139,795,Hans Arnold,0.632437
+140,1317,Oskar Kokoschka,0.632049
+141,1284,NHK Animation,0.631891
+142,1104,Klaus Burgle,0.631758
+143,747,Giovanni Battista Bracelli,0.631475
+144,707,Frits Van den Berghe,0.631180
+145,929,Jean Bourdichon,0.631033
+146,1277,Natalia Goncharova,0.630821
+147,1323,Paolo Veronese,0.630591
+148,831,Hervé Guibert,0.630428
+149,1733,Émile Gallé,0.630426
+150,925,Jaya Suberg,0.630330
+151,1463,Roger de La Fresnaye,0.630275
+152,1336,Paul Cézanne,0.630170
+153,73,Albert Tucker,0.629996
+154,1544,Stanislav Poltavsky,0.629345
+155,1606,Till Freitag,0.629162
+156,889,Jacques Le Moyne,0.628754
+157,121,Alexandre Jacovleff,0.628719
+158,1656,Viktoria Gavrilenko,0.628690
+159,1076,Kawanabe Kyōsai,0.628192
+160,1391,Raffaello Sanizo,0.628056
+161,996,Johannes Voss,0.627694
+162,793,Hanna-Barbera,0.627656
+163,475,Ching Yeh,0.627307
+164,832,Hethe Srodawa,0.627093
+165,982,Joanna Kustra,0.626818
+166,437,Caravaggio,0.626521
+167,269,Arnold Böcklin,0.625657
+168,274,Art Fitzpatrick,0.624956
+169,870,Issac Levitan,0.624585
+170,1130,Leiji Matsumoto,0.624328
+171,1454,Robert William Hume,0.624256
+172,196,Andrzej Sykut,0.624251
+173,662,Ewald Rübsamen,0.624241
+174,1471,Roy Gjertson,0.624111
+175,775,Guillermo del Toro,0.623922
+176,207,Anita Malfatti,0.623408
+177,1257,Mikhail Nesterov,0.622975
+178,1137,Lesley Vance,0.622899
+179,868,Isaac Levitan,0.622487
+180,741,Gianluca Foli,0.622473
+181,986,Joe De Mers,0.622339
+182,277,Artem Chebokha,0.622319
+183,251,Antonio Donghi,0.621682
+184,1107,Kobayashi Kiyochika,0.621424
+185,1494,Saner Edgar,0.620815
+186,1702,Wojciech Ostrycharz,0.620673
+187,1729,Zhichao Cai,0.620430
+188,82,Albrecht Durer,0.620038
+189,62,Albert Edelfelt,0.619902
+190,1495,Sanford Kossin,0.618876
+191,1571,Taiyō Matsumoto,0.618853
+192,204,Angela Sung,0.618614
+193,1711,Yasutomo Oka,0.618325
+194,216,Anna Razumovskaya,0.618289
+195,1563,Sue Bryce,0.618169
+196,1715,Yohann Schepacz,0.617943
+197,601,Edouard Manet,0.617486
+198,1734,Étienne-Louis Boullée,0.617004
+199,1638,Tyler West,0.616637
+200,995,Johannes Vermeer,0.616224
+201,72,Albert Servaes,0.615611
+202,209,Anja Percival,0.615524
+203,1102,Kitagawa Utamaro,0.615056
+204,757,Gloria Stoll Karn,0.614957
+205,383,Bo Chen,0.614913
+206,1728,Zhelong Xu,0.614867
+207,1055,Julien Delval,0.614726
+208,349,Ben Wooten,0.614550
+209,1110,Koson Ohara,0.614488
+210,485,Chris Uminga,0.614416
+211,1140,Liang Mark,0.614002
+212,1309,Olga Skomorokhova,0.613633
+213,321,Bakemono Zukushi,0.613541
+214,969,Jessica Woulfe,0.613124
+215,364,Bess Hamiti,0.612806
+216,1723,Zack Snyder,0.612449
+217,731,Georges de La Tour,0.612413
+218,537,Daryl Mandryk,0.611773
+219,198,André Masson,0.611474
+220,446,Carmen Saldana,0.610558
+221,873,Ivan Aivazovsky,0.610211
+222,1658,Vincent Tanguay,0.610062
+223,1474,Rudolf Freund,0.609852
+224,981,Joan Tuset,0.609733
+225,680,Filippo Balbi,0.609647
+226,714,Gaston Bussière,0.609620
+227,992,Joey Chou,0.608914
+228,1305,Ogawa Kazumasa,0.608751
+229,166,Aminollah Rezaei,0.608591
+230,1129,Lee Quinones,0.608140
+231,1175,Makoto Shinkai,0.607814
+232,947,Jef Wu,0.607788
+233,311,Auguste Mambour,0.607659
+234,1142,Lisa Keene,0.607135
+235,419,Brothers Grimm,0.606963
+236,675,Ferdinand Van Kessel,0.606962
+237,1604,Théodore Géricault,0.606768
+238,250,Antonio Canova,0.606464
+239,340,Beeple,0.606288
+240,125,Alexey Kurbatov,0.606229
+241,388,Bojan Koturanovic,0.606176
+242,458,Charles Camoin,0.605671
+243,118,Alexandre Benois,0.605648
+244,1444,Robert M Cunningham,0.605329
+245,535,Darren Bacon,0.604745
+246,839,Hiroshi Yoshida,0.604584
+247,202,Andy Warhol,0.604451
+248,265,Arkhyp Kuindzhi,0.603972
+249,625,Eliott Lilly,0.603962
+250,1605,Tibor Nagy,0.603856
+251,1170,M.C. Escher,0.603694
+252,1192,Margaux Valonia,0.603579
+253,1398,Raphael,0.603352
+254,1058,Junji Ito,0.603308
+255,295,Artus Scheiner,0.602986
+256,1568,Sydney Edmunds,0.602900
+257,9,Abed Abdi,0.602639
+258,1445,Robert Maguire,0.602020
+259,152,Alpo Jaakola,0.602018
+260,1283,Nele Zirnite,0.601242
+261,966,Jerzy Duda-Gracz,0.601220
+262,1500,Sarah Lucas,0.601212
+263,817,Henri De Toulouse Lautrec,0.600934
+264,879,J.M.W. Turner,0.600918
+265,657,Ettore Tito,0.600564
+266,763,Grace Popp,0.600137
+267,1584,Teresa Ramos,0.599758
+268,840,Honor C. Appleton,0.599680
+269,260,Archibald Thorburn,0.599432
+270,1313,Os Gemeos,0.599023
+271,314,Augustus Jansson,0.598948
+272,1641,Ul Di Rico,0.598847
+273,934,Jean Marc Nattier,0.598786
+274,1359,Peter Paul Rubens,0.598750
+275,1457,Roberto Matta,0.598666
+276,392,Boris Kustodiev,0.598270
+277,93,Alex Figini,0.597810
+278,836,Hirohiko Araki,0.597441
+279,464,Charles Schridde,0.597271
+280,117,Alexandr Averin,0.596900
+281,13,Abram Efimovich Arkhipov,0.595918
+282,1716,Yoshitaka Amano,0.595370
+283,1489,Samuel Earp,0.595243
+284,781,Gustave Doré,0.595180
+285,604,Edvard Munch,0.594701
+286,984,Joaquín Sorolla,0.594625
+287,1075,Katsushika Hokusai,0.594454
+288,1141,Lisa Frank,0.593427
+289,602,Edouard Riou,0.593304
+290,88,Alessandro Allori,0.593271
+291,133,Alfred Kelsner,0.593137
+292,921,Jason Chan,0.593005
+293,1380,Piotr Jabłoński,0.592888
+294,1453,Robert Vonnoh,0.592570
+295,719,Georg Karl Pfahler,0.592503
+296,1633,Travis Louie,0.592336
+297,1042,Josh Kao,0.591663
+298,659,Eugène Grasset,0.591543
+299,1070,Kasia Nowowiejska,0.591208
+300,1732,Émile Bernard,0.590823
+301,553,David Lynch,0.590679
+302,1164,Luisa Russo,0.590647
+303,1095,Kentaro Miura,0.590531
+304,1289,Nick Silva,0.590509
+305,1081,Kazuo Koike,0.590438
+306,892,Jakub Różalski,0.589365
+307,944,Jean-Michel Basquiat,0.588496
+308,534,Dariusz Zawadzki,0.588444
+309,640,Enki Bilal,0.588413
+310,1228,Matti Suuronen,0.588369
+311,985,Joe Bowler,0.588351
+312,1581,Ted Wallace,0.587848
+313,8,Abdel Hadi Al Gazzar,0.587809
+314,1144,Liubov Sergeevna Popova,0.587208
+315,44,Akseli Gallen-Kallela,0.587128
+316,885,Jackson Pollock,0.586912
+317,841,Honoré Daumier,0.586680
+318,1629,Toshiharu Mizutani,0.586290
+319,1601,Thomas Visscher,0.586243
+320,1564,Susan Luo,0.586083
+321,165,Amiet Cuno,0.585804
+322,1168,Lyubov Popova,0.585802
+323,661,Everett Raymond Kinstler,0.585739
+324,503,Clovis Trouille,0.585545
+325,597,Eddie Mendoza,0.585496
+326,977,Jimmy Ernst,0.585117
+327,124,Alexej von Jawlensky,0.585095
+328,1397,Randolph Caldecott,0.584957
+329,1080,Kazimir Malevich,0.584615
+330,786,Gwenda Morgan,0.584099
+331,354,Bernard Aubertin,0.583438
+332,1314,Osamu Tezuka,0.583386
+333,1548,Stephen Oakley,0.583259
+334,939,Jean-François Millet,0.582942
+335,1223,Matias Hannecke,0.582254
+336,636,Emma Geary,0.582166
+337,116,Alexander Milne Calder,0.581668
+338,1673,Walter Percy Day,0.581252
+339,1189,Margaret Brundage,0.580300
+340,589,Ed Benedict,0.580284
+341,1557,Steven Belledin,0.579854
+342,710,Gaetano Pesce,0.579195
+343,163,Amedee Ozenfant,0.579108
+344,211,Ann Stookey,0.578785
+345,1217,Martiros Saryan,0.578724
+346,86,Aleksi Briclot,0.578307
+347,136,Alfred Parsons,0.578247
+348,1385,Qing Han,0.578221
+349,1118,Lady Pink,0.578101
+350,706,Friedensreich Regentag,0.577986
+351,1390,Rafał Olbiński,0.577299
+352,1515,Shaddy Safadi,0.576035
+353,624,Elenore Abbott,0.575999
+354,394,Botero,0.575977
+355,759,Gordon Browne,0.575851
+356,1281,Neil Boyle,0.575553
+357,532,Dante Gabriel Rossetti,0.575270
+358,344,Ben Hatke,0.575239
+359,1408,Rayner Alencar,0.575217
+360,1370,Pierre Bonnard,0.574874
+361,1171,M.W. Kaluta,0.574457
+362,1684,William Blake,0.574445
+363,1187,Marcus Selmer,0.574411
+364,1051,Julian Calle,0.574272
+365,695,Frank Tinsley,0.574161
+366,1180,Marat Latypov,0.574125
+367,970,Jhonen Vasquez,0.573847
+368,623,Eleanor Vere Boyle,0.573458
+369,1312,Ollie Hoff,0.573329
+370,83,Alejandro Burdisio,0.571755
+371,122,Alexandre-Évariste Fragonard,0.571704
+372,727,George Lucas,0.571598
+373,1717,Yoshiyuki Tomino,0.571590
+374,76,Alberto Giacometti,0.571315
+375,223,Anne Sudworth,0.571160
+376,492,Christopher Jin Baron,0.571038
+377,1293,Nikolai Ge,0.570956
+378,1183,Marc Samson,0.570827
+379,542,David Aja,0.570767
+380,255,Antonio Roybal,0.570509
+381,197,André Lhote,0.570393
+382,1421,Rich Davies,0.570304
+383,1661,Vittorio Matteo Corcos,0.570052
+384,718,Georg Jensen,0.569550
+385,862,Incarcerated Jerkfaces,0.569319
+386,1196,Marianne von Werefkin,0.569299
+387,1652,Victor Nizovtsev,0.569288
+388,1194,Maria Pascual Alberich,0.568810
+389,1197,Marie Guillemine Benoist,0.568643
+390,358,Berndnaut Smilde,0.567774
+391,510,Constant Permeke,0.567607
+392,1138,Leticia Gillett,0.567007
+393,1518,Sheilah Beckett,0.566759
+394,999,John Atherton,0.565506
+395,788,H.P. Lovecraft,0.565219
+396,777,Gustaf Tenggren,0.563752
+397,1566,Sven Nordqvist,0.563468
+398,1148,Lorenz Hideyoshi,0.562315
+399,1472,Roy Lichtenstein,0.562064
+400,711,Galan Pang,0.561513
+401,789,Haddon Sundblom,0.561047
+402,583,Dr. Seuss,0.560660
+403,456,Charles Angrand,0.560562
+404,1147,Lorena Alvarez Gómez,0.559839
+405,1578,Tatsuro Kiuchi,0.559054
+406,973,Jim Davis,0.558871
+407,890,Jacques Nathan-Garamond,0.558718
+408,353,Berend Strik,0.558572
+409,95,Alex Grey,0.558266
+410,627,Ellen Gallagher,0.558202
+411,1521,Shin Jeongho,0.557471
+412,18,Adi Granov,0.557357
+413,335,Bartolome Esteban Murillo,0.556677
+414,507,Colin Geller,0.556028
+415,363,Bertil Nilsson,0.555875
+416,1116,Käthe Kollwitz,0.555846
+417,949,Jeff Goldblum,0.555524
+418,336,Basil Gogos,0.555301
+419,1730,Zinaida Serebriakova,0.554905
+420,1679,Wes Anderson,0.554670
+421,41,Akihiko Yoshida,0.553955
+422,114,Alexander McQueen,0.553777
+423,1334,Paul Chadeisson,0.553674
+424,928,Jean Auguste Dominique Ingres,0.553388
+425,450,Cassius Marcellus Coolidge,0.553374
+426,891,Jake Parker,0.552146
+427,60,Albert Dubois-Pillet,0.551408
+428,11,Abraham Mintchine,0.551090
+429,567,Dick Bickenbach,0.551024
+430,32,Affandi,0.550909
+431,50,Alan Davis,0.549953
+432,1569,Sydney Prior Hall,0.549468
+433,864,Inio Asano,0.549443
+434,1612,Titian,0.548522
+435,621,El Greco,0.548107
+436,569,Diego Rivera,0.547922
+437,1296,Nobuyoshi Araki,0.546242
+438,257,Apollinary Vasnetsov,0.546206
+439,812,Helene Schjerfbeck,0.546177
+440,808,Heinrich Lefler,0.546064
+441,1109,Konstantin Yuon,0.545759
+442,181,Andrea Mantegna,0.545745
+443,644,Erich Heckel,0.545267
+444,830,Herve Groussin,0.545165
+445,1113,Kunisada,0.545001
+446,940,Jean-Honoré Fragonard,0.544966
+447,1607,Tim Burton,0.544770
+448,1146,Loish,0.544321
+449,468,Charles-Francois Daubigny,0.544294
+450,80,Alberto Vargas,0.543629
+451,1664,Vivienne Westwood,0.542844
+452,400,Brent Cotton,0.542510
+453,1298,Noriyoshi Ohrai,0.542436
+454,158,Amadou Opa Bathily,0.542173
+455,543,David B. Mattingly,0.542078
+456,619,Eiichiro Oda,0.542048
+457,1593,Thomas Dodd,0.541802
+458,39,Ai Weiwei,0.541220
+459,1416,Rene Laloux,0.541089
+460,1382,Pixar Concept Artists,0.540205
+461,1371,Pierre Puvis de Chavannes,0.539359
+462,1030,Jon McCoy,0.538698
+463,1291,Nicolas Delort,0.538528
+464,1674,Warren Ellis,0.538172
+465,306,August Friedrich Schenck,0.537986
+466,799,Harold McCauley,0.537974
+467,239,Antoine Verney-Carron,0.536584
+468,42,Akira Toriyama,0.536453
+469,352,Benoit B. Mandelbrot,0.535884
+470,587,E. H. Shepard,0.535332
+471,819,Henri Matisse,0.535183
+472,646,Ernest Crichlow,0.534760
+473,1651,Victor Moscoso,0.534682
+474,1628,Tony Moore,0.534655
+475,1582,Teophilus Tetteh,0.534355
+476,698,Franz Marc,0.531342
+477,167,Amir Zand,0.531308
+478,1026,John Whitcomb,0.530201
+479,1435,Rick Guidice,0.528944
+480,603,Eduardo Kobra,0.528882
+481,333,Barthel Bruyn the Elder,0.527806
+482,736,Gerda Wegener,0.527437
+483,1648,Victor Adame Minguez,0.527274
+484,367,Bhupen Khakhar,0.527167
+485,1417,Rene Magritte,0.527146
+486,1588,theCHAMBA,0.526045
+487,814,Hendrick Cornelisz Vroom,0.525522
+488,1324,Pascal Blanche,0.525475
+489,1533,Sir James Guthrie,0.525041
+490,1270,Méret Oppenheim,0.524862
+491,426,Bruno Munari,0.523416
+492,4,Aaron Jasinski,0.523175
+493,617,Eero Saarinen,0.522696
+494,496,Clara Miller Burd,0.521735
+495,709,Gabriele Münter,0.520716
+496,320,Aykut Aydogdu,0.520654
+497,631,Emil Alzamora,0.520631
+498,974,Jim Lee,0.519402
+499,334,Barthel Bruyn the Younger,0.519283
+500,943,Jean-Léon Gérôme,0.519102
+501,1389,Rafael Albuquerque,0.518667
+502,1143,Liu Ye,0.518598
+503,1611,Tintoretto,0.518141
+504,1088,Kelly Sue Deconnick,0.517745
+505,75,Alberto Burri,0.516886
+506,1247,Michal Lisowski,0.516830
+507,1105,Klaus Janson,0.516738
+508,173,Anatoly Metlan,0.516529
+509,1496,Sangyeob Park,0.516342
+510,325,Barbara Stauffacher Solomon,0.515965
+511,435,Canaletto,0.515933
+512,920,Jason A. Engle,0.515057
+513,1579,teamLab,0.515017
+514,684,Francis Bacon,0.514423
+515,607,Edward Hopper,0.514259
+516,131,Alfred Heber Hutty,0.513229
+517,1226,Matt Groening,0.513070
+518,1596,Thomas Kinkade,0.511821
+519,236,Anthony van Dyck,0.511325
+520,1439,Robert Childress,0.511223
+521,1427,Richard Doyle,0.510625
+522,517,Craig Wylie,0.510288
+523,1185,Marcin Jakubowski,0.510150
+524,1090,Ken Fairclough,0.509707
+525,129,Alfred Eisenstaedt,0.509122
+526,1271,Nagel Patrick,0.507870
+527,1115,Kurzgesagt,0.507463
+528,1507,Scott Brundage,0.507106
+529,1092,Ken Sugimori,0.505982
+530,758,Go Nagai,0.504848
+531,724,George Grosz,0.504031
+532,951,Jeff Koons,0.503896
+533,270,Arnold Schoenberg,0.503794
+534,378,Bill Watterson,0.503366
+535,554,David McClellan,0.503103
+536,1542,Stan And Jan Berenstain,0.500794
+537,1642,Umberto Boccioni,0.500758
+538,1151,Louis Comfort Tiffany,0.500134
+539,53,Alan Moore,0.500117
+540,261,Aries Moross,0.499573
+541,1483,Salomon van Ruysdael,0.499130
+542,1412,Rebecca Sugar,0.498994
+543,577,Dora Maar,0.497554
+544,1181,Marc Chagall,0.496606
+545,1321,Pamela Colman Smith,0.495980
+546,860,Ilya Kuvshinov,0.495059
+547,1013,John James Audubon,0.494663
+548,1551,Steve Argyle,0.494517
+549,792,Hale Woodruff,0.494471
+550,1039,Joseph Mallord William Turner,0.494365
+551,1294,Nikolina Petolas,0.492634
+552,721,George Dionysus Ehret,0.492454
+553,159,Amanda Clark,0.491831
+554,1318,Ossip Zadkine,0.491565
+555,1300,Norman Foster,0.491475
+556,40,Ai Yazawa,0.489619
+557,1540,Sparth,0.488757
+558,84,Alejandro Jodorowsky,0.488546
+559,27,Adrian Paul Allinson,0.487085
+560,1206,Mark Lovett,0.486293
+561,825,Henry Moore,0.485649
+562,231,Ansel Adams,0.483883
+563,1436,Rob Liefeld,0.483759
+564,1301,Norman Rockwell,0.483593
+565,112,Alexander Jansson,0.483478
+566,1635,Tsutomu Nihei,0.483401
+567,1327,Patricia Polacco,0.483115
+568,271,Aron Demetz,0.483057
+569,1057,Jun Kaneko,0.481842
+570,1691,William Morris,0.481790
+571,1545,Stanisław Szukalski,0.481507
+572,203,Angela Barrett,0.481382
+573,877,J. J. Grandville,0.481182
+574,1698,Wim Crouwel,0.481159
+575,950,Jeff Kinney,0.481049
+576,81,Albrecht Anker,0.479989
+577,315,Augustus John,0.479288
+578,145,Allen Williams,0.478437
+579,1025,John Wayne Gacy,0.478136
+580,1173,Maginel Wright Enright Barney,0.478086
+581,1587,Tex Avery,0.477524
+582,1488,Samuel and Joseph Newsom,0.476990
+583,1550,Stevan Dohanos,0.476690
+584,97,Alex Hirsch,0.476108
+585,754,Gjon Mili,0.475700
+586,1074,Katsuhiro Otomo,0.475074
+587,1220,Masamune Shirow,0.475001
+588,227,Annibale Carracci,0.474616
+589,946,Jean-Paul Riopelle,0.473819
+590,733,Georges Seurat,0.473681
+591,1525,Shotaro Ishinomori,0.473154
+592,1234,Max Weber,0.471864
+593,746,Giotto Di Bondone,0.471790
+594,1721,Yves Klein,0.471616
+595,1256,Mikhail Larionov,0.468515
+596,318,Ayami Kojima,0.466914
+597,279,Artgerm,0.466344
+598,1077,Kaws,0.466217
+599,822,Henriette Grindat,0.465419
+600,436,Candido Portinari,0.465300
+601,1341,Paul Lehr,0.465270
+602,1048,Juergen Teller,0.465083
+603,1692,William S. Burroughs,0.464645
+604,191,Andrew Robinson,0.464593
+605,767,Greg Girard,0.464500
+606,1199,Marina Abramović,0.464348
+607,693,Frank Lloyd Wright,0.464074
+608,1322,Paolo Roversi,0.463713
+609,1037,Joseph Ducreux,0.463242
+610,55,Alan Schaller,0.462872
+611,1100,Kim Jung Gi,0.462719
+612,1709,Yasuo Kuniyoshi,0.462305
+613,749,Giovanni Battista Piranesi,0.461890
+614,810,Helen Frankenthaler,0.461784
+615,294,Arturo Souto,0.461202
+616,901,James Paick,0.460917
+617,1306,Ohara Koson,0.460798
+618,820,Henri Rousseau,0.460719
+619,1287,Nick Knight,0.460224
+620,278,Artemisia Gentileschi,0.458468
+621,1215,Martin Kippenberger,0.458352
+622,1392,Raja Ravi Varma,0.458055
+623,132,Alfred Henry Maurer,0.457478
+624,1497,Santiago Calatrava,0.457069
+625,449,Caspar David Friedrich,0.456652
+626,796,Hans Baldung,0.456157
+627,1264,Miriam Schapiro,0.455835
+628,772,Guerrilla Girls,0.455718
+629,26,Adrian Ghenie,0.455703
+630,1177,Man Ray,0.455687
+631,1675,Warwick Globe,0.455288
+632,898,James Gurney,0.454595
+633,1676,Wassily Kandinsky,0.454018
+634,1450,Robert Rauschenberg,0.453891
+635,852,Hyacinthe Rigaud,0.453772
+636,326,Barbara Takenaga,0.453732
+637,610,Edward Lear,0.453548
+638,164,Amedeo Modigliani,0.453365
+639,1694,William Stout,0.452396
+640,407,Brian K. Vaughan,0.451699
+641,521,Damien Hirst,0.451024
+642,1470,Ross Tran,0.450879
+643,649,Ernst Haas,0.450236
+644,1098,Kieron Gillen,0.449992
+645,1339,Paul Gustav Fischer,0.449357
+646,1225,Matt Fraction,0.447690
+647,1475,Rumiko Takahashi,0.447660
+648,240,Anton Corbijn,0.447233
+649,186,Andreas Vesalius,0.446667
+650,381,Blek Le Rat,0.445791
+651,765,Grant Wood,0.445626
+652,1559,Stuart Davis,0.445413
+653,501,Cliff Chiang,0.445092
+654,1631,Tove Jansson,0.444966
+655,1169,László Moholy-Nagy,0.444696
+656,1274,Naoko Takeuchi,0.444411
+657,1640,Uemura Shoen,0.443591
+658,1003,John Blanche,0.443442
+659,884,Jack Kirby,0.442765
+660,477,Chris Claremont,0.442612
+661,1437,Robert Antoine Pinchon,0.442176
+662,971,Jillian Tamaki,0.441622
+663,1532,Simon Stalenhag,0.441554
+664,478,Chris Cunningham,0.441454
+665,766,Grayson Perry,0.441381
+666,1710,Yasushi Nirasawa,0.440602
+667,172,Anato Finnstark,0.439754
+668,1712,Yayoi Kusama,0.439480
+669,1667,W.W. Denslow,0.439342
+670,1376,Pieter Bruegel The Elder,0.438616
+671,462,Charles Le Brun,0.438543
+672,888,Jacob van Ruisdael,0.438272
+673,1356,Peter Kemp,0.437696
+674,357,Bernardo Strozzi,0.437631
+675,752,Giuseppe Arcimboldo,0.437631
+676,1727,Zhang Kechun,0.437268
+677,1455,Robert Williams,0.437014
+678,1731,Élisabeth Vigée Le Brun,0.436846
+679,1018,John Perceval,0.436512
+680,1072,Kathryn Morris Trotter,0.436441
+681,1476,Russell Ayto,0.436162
+682,5,Aaron Siskind,0.435967
+683,1503,Saul Bass,0.435857
+684,592,Ed Emshwiller,0.433734
+685,780,Gustave Courbet,0.432939
+686,591,Ed Brubaker,0.432869
+687,45,Al Capp,0.432612
+688,1273,Naoki Urasawa,0.432003
+689,1537,Sofonisba Anguissola,0.429753
+690,1357,Peter Milligan,0.429632
+691,1374,Piet Mondrian,0.428944
+692,565,Diane Arbus,0.428339
+693,865,Irma Stern,0.428152
+694,859,Igor Zenin,0.426785
+695,1201,Marjane Satrapi,0.426395
+696,1553,Steve Ditko,0.426312
+697,1040,Joseph Stella,0.425969
+698,252,Antonio J. Manzanedo,0.425184
+699,276,Art Spiegelman,0.425156
+700,760,Gordon Parks,0.424572
+701,729,George Stubbs,0.424290
+702,1688,William Henry Hunt,0.424096
+703,1253,Mike Mignola,0.423459
+704,301,Atay Ghailan,0.423268
+705,312,Auguste Toulmouche,0.422917
+706,1207,Mark Rothko,0.422795
+707,405,Brian Despain,0.421730
+708,1229,Maurice Sendak,0.421071
+709,696,Frank Xavier Leyendecker,0.420783
+710,1501,Satoshi Kon,0.420643
+711,1556,Steve McCurry,0.419989
+712,1250,Mikalojus Konstantinas Ciurlionis,0.419235
+713,875,Ivan Bilibin,0.418978
+714,59,Albert Bloch,0.418612
+715,1526,Shusei Nagaoko,0.418405
+716,668,Faith 47,0.418107
+717,1375,Pieter Aertsen,0.417724
+718,1044,José Clemente Orozco,0.417709
+719,769,Greg Rutkowski,0.417688
+720,391,Boris Groh,0.417182
+721,1627,Tony DiTerlizzi,0.417001
+722,1597,Thomas Moran,0.416729
+723,1598,Thomas Rowlandson,0.416088
+724,513,Cory Loftis,0.415431
+725,800,Haroon Mirza,0.414119
+726,854,Ian McQue,0.413523
+727,1442,Robert Hagan,0.413088
+728,1021,John Singer Sargent,0.413028
+729,144,Alison Bechdel,0.412835
+730,1265,Moebius,0.412426
+731,1295,Noah Bradley,0.412229
+732,1310,Olivier Bonhomme,0.412119
+733,816,Hendrik Kerstens,0.411738
+734,1093,Kengo Kuma,0.411716
+735,701,Frederic Church,0.411164
+736,147,Allison Bechdel,0.410335
+737,106,Alex Schomburg,0.410240
+738,139,Algernon Blackwood,0.409929
+739,547,David Burliuk,0.409512
+740,651,Ernst Ludwig Kirchner,0.408957
+741,1386,Quentin Blake,0.408845
+742,1233,Max Pechstein,0.408710
+743,1224,Matt Bors,0.407535
+744,1286,Nicholas Roerich,0.406769
+745,1260,Milo Manara,0.406359
+746,572,Don Bluth,0.406354
+747,439,Carl Barks,0.405934
+748,902,James Stokoe,0.405483
+749,1288,Nick Sharratt,0.405420
+750,997,Johfra Bosschart,0.405189
+751,324,Barbara Kruger,0.404124
+752,1160,Lucian Freud,0.403437
+753,585,Dustin Nguyen,0.403273
+754,299,Asher Brown Durand,0.402870
+755,109,Alexander Archipenko,0.401525
+756,1315,OSGEMEOS,0.400790
+757,843,Horace Vernet,0.400613
+758,380,Bjarke Ingels,0.400499
+759,430,C. R. W. Nevinson,0.400044
+760,740,Giacomo Balla,0.399415
+761,936,Jean Nouvel,0.398679
+762,1643,Utagawa Hiroshige,0.398199
+763,253,Antonio Mancini,0.397377
+764,1230,Max Beckmann,0.396871
+765,1689,William Hogarth,0.395653
+766,206,Anish Kapoor,0.395500
+767,1490,Samuel Melton Fisher,0.395383
+768,612,Edward Steichen,0.395082
+769,1191,Margaret Mee,0.394053
+770,1504,Saul Steinberg,0.393621
+771,1539,Sou Fujimoto,0.393420
+772,177,Andre Derain,0.393094
+773,248,Antonello da Messina,0.392713
+774,681,Flora Borsi,0.392281
+775,1024,John Totleben,0.392138
+776,14,Adam Elsheimer,0.391845
+777,1665,Vladimir Kush,0.391648
+778,1028,John William Waterhouse,0.390627
+779,924,Jaume Plensa,0.390363
+780,1438,Robert Chew,0.389827
+781,1083,Keith Haring,0.389763
+782,1378,Pieter de Hooch,0.389486
+783,520,Dain Yoon,0.389485
+784,1307,Olafur Eliasson,0.389255
+785,895,James Ensor,0.389252
+786,1570,Tadao Ando,0.388996
+787,1006,John Constable,0.388878
+788,154,Alvar Aalto,0.387232
+789,1099,Kilian Eng,0.387097
+790,1660,Vito Acconci,0.387038
+791,1618,Tom Hammick,0.386604
+792,1404,Raymond Briggs,0.386603
+793,525,Daniel Buren,0.386363
+794,1188,Marek Okon,0.385893
+795,444,Carlo Crivelli,0.385743
+796,909,Jamie McKelvie,0.385568
+797,210,Anka Zhuravleva,0.385256
+798,738,Gerhard Richter,0.385174
+799,596,Eddie Campbell,0.385082
+800,609,Edward Julius Detmold,0.384863
+801,162,Ambrosius Bosschaert,0.384536
+802,1670,Walt Kelly,0.383871
+803,931,Jean Fouquet,0.383443
+804,900,James Montgomery Flagg,0.383298
+805,887,Jacob Lawrence,0.383225
+806,1683,Willem de Kooning,0.382930
+807,52,Alan Lee,0.382814
+808,744,Gilbert Stuart,0.382331
+809,976,Jim Woodring,0.382268
+810,633,Emil Nolde,0.382130
+811,691,Frank Gehry,0.381904
+812,6,Abbott Fuller Graves,0.381354
+813,737,Gerhard Munthe,0.379532
+814,390,Boris Grigoriev,0.379277
+815,54,Alan Parry,0.378935
+816,618,Egon Schiele,0.378210
+817,712,Gareth Pugh,0.377322
+818,679,Filippino Lippi,0.377290
+819,550,David Hockney,0.377220
+820,1595,Thomas Gainsborough,0.376765
+821,893,James Abbott McNeill Whistler,0.376151
+822,1456,Roberto Ferri,0.375815
+823,1133,Leonetto Cappiello,0.375799
+824,1304,Odilon Redon,0.375748
+825,237,Anto Carte,0.375714
+826,1552,Steve Dillon,0.375010
+827,432,Camille Corot,0.373587
+828,429,Butcher Billy,0.373121
+829,1589,Thomas Allom,0.372917
+830,428,Bryan Hitch,0.372444
+831,1319,Otto Dix,0.372101
+832,1131,Leon Kossoff,0.372085
+833,1015,John La Farge,0.371937
+834,676,Fernand Khnopff,0.371226
+835,1046,Juan Gris,0.370789
+836,298,Asger Jorn,0.370675
+837,1615,Tokujin Yoshioka,0.370277
+838,1035,Josef Albers,0.370021
+839,1085,Keith Parkinson,0.369826
+840,650,Ernst Haeckel,0.369748
+841,476,Chip Zdarsky,0.369229
+842,1349,Peter Bagge,0.367755
+843,1621,Tom Thomson,0.367261
+844,422,Bruce Nauman,0.366493
+845,512,Cory Arcangel,0.366400
+846,120,Alexandre Calame,0.365478
+847,518,Craola,0.365421
+848,1468,Ron Walotsky,0.365379
+849,1159,Lucas Cranach the Elder,0.365200
+850,178,Andre Kertesz,0.364832
+851,549,David Finch,0.364724
+852,1705,Worthington Whittredge,0.364065
+853,938,Jean-Baptiste Monge,0.363811
+854,876,Ivan Shishkin,0.363533
+855,1573,Takeshi Obata,0.363222
+856,835,Hilma AF Klint,0.362514
+857,286,Arthur Lismer,0.361940
+858,829,Herbert List,0.361474
+859,622,Elaine de Kooning,0.361184
+860,1149,Loretta Lux,0.361166
+861,713,Gary Larson,0.361069
+862,1174,Magnus Enckell,0.360690
+863,1019,John Philip Falter,0.360469
+864,1377,Pieter Claesz,0.360449
+865,526,Daniel Clowes,0.359721
+866,1620,Tom Roberts,0.359654
+867,1219,Mary Cassatt,0.359596
+868,915,Jan van Kessel the Elder,0.359028
+869,280,Arthur Adams,0.358422
+870,790,Hajime Sorayama,0.357623
+871,1466,Romero Britto,0.356291
+872,493,Chuck Close,0.356270
+873,1699,Wim Wenders,0.355673
+874,1561,Stuart Immonen,0.355204
+875,654,Ethan Van Sciver,0.354982
+876,1252,Mike Mayhew,0.354252
+877,806,Hein Gorny,0.353229
+878,221,Anne Rothenstein,0.353170
+879,1697,William-Adolphe Bouguereau,0.352706
+880,1725,Zanele Muholi,0.352491
+881,595,Ed Roth,0.352467
+882,1145,Lois van Baarle,0.352336
+883,1535,Skottie Young,0.352066
+884,787,H. R. (Hans Ruedi) Giger,0.351690
+885,1693,William Steig,0.351469
+886,297,Asaf Hanuka,0.351410
+887,773,Guido Borelli Da Caluso,0.351230
+888,1622,Tom Whalen,0.350751
+889,1023,John Stezaker,0.350687
+890,861,Ilya Repin,0.350615
+891,304,Aubrey Beardsley,0.349934
+892,910,Jamini Roy,0.349281
+893,1134,Leonid Afremov,0.348636
+894,504,Clyde Caldwell,0.348506
+895,1364,Phil Jimenez,0.348397
+896,821,Henri-Edmond Cross,0.348321
+897,1033,Jorge Jacinto,0.348096
+898,1136,Les Edwards,0.347539
+899,1512,Seb Mckinnon,0.347514
+900,1434,Richard Scarry,0.347306
+901,1528,Silvestro Lega,0.347275
+902,1009,John Frederick Kensett,0.347274
+903,343,Ben Goossens,0.346143
+904,460,Charles E. Burchfield,0.345698
+905,1636,Tyler Edlin,0.345519
+906,723,George French Angas,0.344172
+907,264,Aristide Maillol,0.343701
+908,1195,Marianne North,0.342533
+909,753,Giuseppe de Nittis,0.342177
+910,104,Alex Ross,0.341831
+911,1316,Oskar Fischinger,0.340741
+912,1232,Max Ernst,0.340410
+913,611,Edward Robert Hughes,0.339597
+914,1519,Shepard Fairey,0.339559
+915,1608,Tim Doyle,0.339319
+916,527,Daniel Garber,0.338559
+917,972,Jim Burns,0.338112
+918,700,Franz Xaver Winterhalter,0.337939
+919,576,Dora Carrington,0.337570
+920,1290,Nicola Samori,0.337455
+921,801,Harriet Backer,0.337136
+922,1337,Paul Delvaux,0.336786
+923,1469,Ronald Balfour,0.336726
+924,1368,Philippe Parreno,0.336052
+925,571,Dmitry Kustanovich,0.335213
+926,994,Johannes Itten,0.334961
+927,1182,Marc Davis,0.334383
+928,443,Carl Spitzweg,0.333970
+929,728,George Luks,0.333916
+930,348,Ben Templesmith,0.333775
+931,1613,Todd McFarlane,0.333657
+932,1485,Sam Bosma,0.333622
+933,1671,Walter Crane,0.333380
+934,149,Alois Arnegger,0.333120
+935,7,Abbott Handerson Thayer,0.333034
+936,474,Chiharu Shiota,0.332946
+937,254,Antonio Mora,0.332908
+938,338,Bayard Wu,0.332901
+939,389,Bordalo II,0.331632
+940,1722,Yves Tanguy,0.331339
+941,1022,John Singleton Copley,0.331138
+942,396,Brad Rigney,0.330937
+943,1008,John Duncan,0.330768
+944,1064,Karel Appel,0.330531
+945,1106,Klaus Wittmann,0.330229
+946,666,Fabio Hurtado,0.329669
+947,776,Guo Pei,0.328970
+948,483,Chris Saunders,0.328315
+949,716,Genndy Tartakovsky,0.327825
+950,155,Alvaro Siza,0.327127
+951,671,Farel Dalrymple,0.327050
+952,176,Andre De Dienes,0.326808
+953,690,Frank Frazetta,0.326781
+954,219,Anne Mccaffrey,0.326316
+955,412,Brian Sum,0.326121
+956,30,Adrianus Eversen,0.325687
+957,600,Edmund Leighton,0.325437
+958,487,Chris Ware,0.324948
+959,494,Cicely Mary Barker,0.324748
+960,1418,RETNA (Marquis Lewis),0.324348
+961,953,Jeff Lemire,0.324267
+962,1653,Victor Vasarely,0.324195
+963,398,Brandon Woelfel,0.324051
+964,1513,Sebastian Errazuriz,0.323921
+965,1034,Josan Gonzalez,0.323911
+966,960,JennyBird Alcantara,0.323702
+967,307,August Macke,0.323564
+968,1017,John Martin,0.322733
+969,459,Charles Dana Gibson,0.322306
+970,368,Bill Brandt,0.322257
+971,697,Franklin Booth,0.321808
+972,656,Ettore Sottsass,0.321678
+973,375,Bill Sienkiewicz,0.321175
+974,150,Alphonse Mucha,0.319326
+975,288,Arthur Radebaugh,0.318615
+976,1010,John French Sloan,0.318539
+977,1394,Ralph McQuarrie,0.318272
+978,1682,Will Eisner,0.317896
+979,1012,John Hoyland,0.317722
+980,1592,Thomas Cole,0.317441
+981,137,Alfred Stevens,0.316871
+982,1558,Storm Thorgerson,0.316446
+983,1124,Laurie Greasley,0.315343
+984,673,Ferdinand Hodler,0.315317
+985,837,Hiroshi Nagai,0.315194
+986,411,Brian Stelfreeze,0.315061
+987,742,Gifford Beal,0.314651
+988,1004,John Bratby,0.314568
+989,1531,Simon Bisley,0.314472
+990,1517,Shawn Coss,0.314300
+991,1054,Julie Mehretu,0.314284
+992,130,Alfred Guillou,0.313304
+993,1426,Richard Diebenkorn,0.313276
+994,599,Edmund Dulac,0.313001
+995,791,Hal Foster,0.312806
+996,1724,Zaha Hadid,0.312184
+997,797,Hans Baluschek,0.311286
+998,1204,Mark Brooks,0.310926
+999,886,Jacob Hashimoto,0.310884
+1000,184,Andreas Gursky,0.310856
+1001,702,Frederic Remington,0.310810
+1002,1218,Mary Blair,0.310220
+1003,362,Berthe Morisot,0.310029
+1004,703,Frederick Lord Leighton,0.309934
+1005,665,Fabian Perez,0.309455
+1006,1420,RHADS,0.309399
+1007,903,James Thomas Watts,0.309275
+1008,905,James Turrell,0.308888
+1009,1549,Stephen Shore,0.308413
+1010,1152,Louis Glackens,0.308394
+1011,616,Edwin Henry Landseer,0.307791
+1012,539,Dave Gibbons,0.307428
+1013,484,Chris Turnham,0.307367
+1014,1209,Mark Seliger,0.307050
+1015,1049,Jules Bastien-Lepage,0.307048
+1016,1167,Lyonel Feininger,0.307028
+1017,734,Georgia O’Keeffe,0.306330
+1018,930,Jean Dubuffet,0.306067
+1019,923,Jasper Johns,0.306056
+1020,874,Ivan Albright,0.305965
+1021,1726,Zdzisław Beksiński,0.305247
+1022,1646,Vhils,0.304382
+1023,296,Ary Scheffer,0.304159
+1024,98,Alex Horley,0.303935
+1025,756,Glenn Fabry,0.303539
+1026,538,Dave Dorman,0.303515
+1027,699,Franz Sedlacek,0.303225
+1028,1415,Remedios Varo,0.302785
+1029,704,Frederick McCubbin,0.302709
+1030,605,Edward Atkinson Hornel,0.302288
+1031,327,Barclay Shaw,0.301693
+1032,138,Alfredo Jaar,0.300814
+1033,440,Carl Gustav Carus,0.300610
+1034,387,Bojan Jevtic,0.300344
+1035,1527,Sidney Nolan,0.300294
+1036,1487,Sam Spratt,0.300225
+1037,1005,John Cassaday,0.300225
+1038,857,Igor Morski,0.299822
+1039,268,Arnold Bocklin,0.299770
+1040,420,Brothers Hildebrandt,0.299515
+1041,36,Agnes Martin,0.299400
+1042,536,Darwyn Cooke,0.298210
+1043,815,Hendrick Goltzius,0.297502
+1044,481,Chris Moore,0.296885
+1045,1235,Maxfield Parrish,0.296883
+1046,1275,Naomi Okubo,0.296850
+1047,28,Adrian Smith,0.296743
+1048,1236,Maximilian Pirner,0.296470
+1049,692,Frank Holl,0.295969
+1050,1331,Patrick Heron,0.295212
+1051,608,Edward John Poynter,0.295047
+1052,292,Arthur Wardle,0.294884
+1053,720,George Cruikshank,0.294052
+1054,281,Arthur Boyd,0.293777
+1055,1704,Wolfgang Tillmans,0.292182
+1056,1530,Simon Birch,0.292080
+1057,660,Evelyn De Morgan,0.291587
+1058,613,Edward Weston,0.291249
+1059,1241,Michael Deforge,0.290976
+1060,1231,Max Dupain,0.290092
+1061,1686,William Etty,0.290010
+1062,195,Android Jones,0.289838
+1063,1212,Martin Deschambault,0.288647
+1064,725,George Herriman,0.288347
+1065,1103,Kitty Lange Kielland,0.287658
+1066,1429,Richard Hamilton,0.287536
+1067,1242,Michael Heizer,0.286973
+1068,1639,Ub Iwerks,0.286098
+1069,715,Gediminas Pranckevicius,0.285976
+1070,1213,Martin John Heade,0.285844
+1071,345,Ben Nicholson,0.285615
+1072,1590,Thomas Benjamin Kennington,0.285178
+1073,988,Joe Jusko,0.284928
+1074,1014,John Kenn Mortensen,0.283683
+1075,355,Bernard Buffet,0.283047
+1076,1198,Marie Spartali Stillman,0.282688
+1077,1032,Jordan Grimmer,0.282616
+1078,1165,Lynd Ward,0.282355
+1079,224,Anne Truitt,0.282283
+1080,361,Bert Stern,0.282246
+1081,1428,Richard Eurich,0.282109
+1082,1600,Thomas Struth,0.281886
+1083,1184,Marc Simonetti,0.280956
+1084,1409,Rebeca Saray,0.280327
+1085,1464,Roger Dean,0.280035
+1086,161,Ambrosius Benson,0.279047
+1087,1700,Winslow Homer,0.278868
+1088,455,Charles Addams,0.278704
+1089,1401,Ravi Zupa,0.278672
+1090,360,Bert Hardy,0.278515
+1091,226,Anni Albers,0.278322
+1092,266,Armand Guillaumin,0.278282
+1093,1701,Winsor McCay,0.278088
+1094,351,Benedick Bana,0.277934
+1095,495,Cindy Sherman,0.277563
+1096,230,Annie Swynnerton,0.277429
+1097,881,Jack Butler Yeats,0.277107
+1098,1328,Patrick Brown,0.276117
+1099,1687,William Gropper,0.275917
+1100,561,Dean Ellis,0.275888
+1101,273,Arshile Gorky,0.275472
+1102,1200,Marius Borgeaud,0.275465
+1103,894,James C Christensen,0.274646
+1104,1423,Richard Corben,0.274570
+1105,897,James Gillray,0.273714
+1106,46,Al Feldstein,0.272858
+1107,1685,William Eggleston,0.272689
+1108,932,Jean Giraud,0.272282
+1109,818,Henri Fantin Latour,0.271586
+1110,522,Dan Flavin,0.271398
+1111,397,Brandon Mably,0.270846
+1112,438,Carel Willink,0.270794
+1113,677,Fernand Toussaint,0.270425
+1114,907,Jamie Hawkesworth,0.270124
+1115,1599,Thomas Saliot,0.269171
+1116,393,Boris Vallejo,0.268833
+1117,1078,Kay Nielsen,0.268775
+1118,1263,Milton Glaser,0.268443
+1119,1082,Kehinde Wiley,0.268373
+1120,807,Heinrich Kley,0.268281
+1121,1121,Larry Sultan,0.268046
+1122,1662,Vivian Maier,0.268032
+1123,1302,Octavio Ocampo,0.267796
+1124,1342,Paul Ranson,0.267315
+1125,848,Hsiao-Ron Cheng,0.267214
+1126,1154,Louis Janmot,0.267044
+1127,1210,Marsden Hartley,0.266824
+1128,190,Andrew Macara,0.266794
+1129,480,Chris Leib,0.266640
+1130,1007,John Currin,0.266394
+1131,208,Anja Millen,0.266022
+1132,1343,Paul Strand,0.265971
+1133,574,Donald Judd,0.265952
+1134,1654,Victoria Crowe,0.265798
+1135,404,Brian Bolland,0.265443
+1136,1473,Ruan Jia,0.265439
+1137,1086,Kelly Freas,0.265046
+1138,770,Greg Simkins,0.264708
+1139,1574,Tamara Lempicka,0.263384
+1140,316,Austin Osman Spare,0.263355
+1141,376,Bill Viola,0.263234
+1142,1440,Robert Crumb,0.262576
+1143,63,Albert Gleizes,0.261964
+1144,442,Carl Larsson,0.261530
+1145,1320,Otto Marseus van Schrieck,0.261164
+1146,205,Angus McKie,0.260832
+1147,1448,Robert Motherwell,0.260756
+1148,153,Alson Skinner Clark,0.260726
+1149,882,Jack Davis,0.260703
+1150,908,Jamie Hewlett,0.260189
+1151,1373,Piet Hein Eek,0.260083
+1152,1395,Ralph Steadman,0.260027
+1153,70,Albert Pinkham Ryder,0.259392
+1154,1156,Louis Wain,0.259036
+1155,732,Georges Rouault,0.258909
+1156,427,Bruno Walpoth,0.258904
+1157,1363,Phil Foglio,0.258895
+1158,1272,Nan Goldin,0.258216
+1159,1534,Siya Oum,0.258107
+1160,322,Balthus,0.258026
+1161,743,Gil Elvgren,0.257651
+1162,471,Chaïm Soutine,0.257351
+1163,1678,Wendy Froud,0.256615
+1164,115,Alexander Millar,0.256339
+1165,1355,Peter Howson,0.256130
+1166,1278,Nathan Coley,0.256122
+1167,689,Frank Auerbach,0.255877
+1168,540,Dave McKean,0.255778
+1169,108,Alex Toth,0.255767
+1170,726,George Inness,0.255252
+1171,579,Dorothea Tanning,0.254861
+1172,1036,Joseph Cornell,0.254747
+1173,1523,Shintaro Kago,0.254716
+1174,245,Anton Pieck,0.254091
+1175,785,Gwen John,0.253960
+1176,648,Ernst Fuchs,0.252621
+1177,275,Art Frahm,0.252452
+1178,1345,Paula Modersohn-Becker,0.251918
+1179,635,Emily Kame Kngwarreye,0.251680
+1180,1222,Mati Klarwein,0.250817
+1181,761,Goro Fujita,0.250617
+1182,528,Daniel Merriam,0.250247
+1183,541,David A. Hardy,0.249998
+1184,1424,Richard Dadd,0.249102
+1185,1066,Karen Wallis,0.248917
+1186,1594,Thomas Eakins,0.247918
+1187,855,Ian Miller,0.247683
+1188,287,Arthur Rackham,0.247557
+1189,573,Don Maitz,0.247253
+1190,1065,Karel Thole,0.246788
+1191,1221,Mat Collishaw,0.246552
+1192,849,Hubert Robert,0.246159
+1193,1119,Larry Elmore,0.246027
+1194,927,Jean Arp,0.245867
+1195,544,David Bomberg,0.245607
+1196,1043,Josh Keyes,0.245385
+1197,285,Arthur Hughes,0.245175
+1198,65,Albert Joseph Moore,0.243970
+1199,606,Edward Gorey,0.243642
+1200,774,Guido Crepax,0.243157
+1201,369,Bill Carman,0.243124
+1202,329,Barnett Newman,0.243088
+1203,453,Chad Knight,0.242241
+1204,511,Constantin Brancusi,0.242203
+1205,558,David Teniers the Younger,0.241500
+1206,1614,Todd Schorr,0.240219
+1207,472,Chen Zhen,0.239912
+1208,998,John Anster Fitzgerald,0.239469
+1209,100,Alex Katz,0.239238
+1210,12,Abraham Pether,0.238801
+1211,1425,Richard Deacon,0.238797
+1212,127,Alfred Augustus Glendening,0.238582
+1213,899,James Jean,0.237987
+1214,847,Howard Pyle,0.237969
+1215,1624,Tomer Hanuka,0.237784
+1216,15,Adam Hughes,0.237163
+1217,1052,Juliana Huxtable,0.236417
+1218,935,Jean Metzinger,0.236354
+1219,1657,Vincent Di Fate,0.235384
+1220,469,Charlie Bowater,0.234982
+1221,1157,Lovis Corinth,0.234906
+1222,346,Ben Quilty,0.234243
+1223,466,Charles Spencelayh,0.233503
+1224,310,Auguste Herbin,0.233290
+1225,794,Hannah Hoch,0.232933
+1226,1155,Louis Rhead,0.232733
+1227,1524,Shohei Otomo,0.232300
+1228,379,Billy Childish,0.232233
+1229,1016,John Lavery,0.232005
+1230,824,Henry Fuseli,0.231757
+1231,290,Arthur Streeton,0.231457
+1232,423,Bruce Pennington,0.231404
+1233,434,Camille Walala,0.231176
+1234,1332,Patrick Woodroffe,0.230937
+1235,1431,Richard McGuire,0.230355
+1236,1360,Peter Sculthorpe,0.230004
+1237,827,Henry Ossawa Tanner,0.229578
+1238,182,Andreas Achenbach,0.229031
+1239,1619,Tom Lovell,0.228849
+1240,1459,Rockwell Kent,0.228759
+1241,1396,Ramon Casas,0.228183
+1242,421,Bruce Munro,0.228119
+1243,74,Albert Watson,0.227911
+1244,694,Frank Stella,0.227735
+1245,1126,Lawren Harris,0.226271
+1246,1402,Ray Caesar,0.226029
+1247,193,Andrew Wyeth,0.225896
+1248,1602,Thomas W Schaller,0.225868
+1249,1122,Laurel Burch,0.225726
+1250,652,Esao Andrews,0.225562
+1251,330,Barry McGee,0.225308
+1252,945,Jeannette Guichard-Bunel,0.225241
+1253,642,Eric Fischl,0.225152
+1254,425,Bruno Catalano,0.225112
+1255,134,Alfred Kubin,0.224205
+1256,584,Dunkelbunt Hundertwasser,0.223714
+1257,1696,William Zorach,0.223261
+1258,682,Ford Madox Brown,0.222960
+1259,1405,Raymond Duchamp-Villon,0.222810
+1260,1340,Paul Laffoley,0.222372
+1261,965,Jerry Pinkney,0.221414
+1262,1572,Takato Yamamoto,0.221370
+1263,979,Joachim Brohm,0.221339
+1264,1467,Ron Mueck,0.221225
+1265,867,Isaac Cordal,0.220832
+1266,1347,Pawel Kuczynski,0.220562
+1267,805,Hayv Kahraman,0.220274
+1268,586,Duy Huynh,0.219159
+1269,1706,Yaacov Agam,0.219054
+1270,975,Jim Mahfood,0.218840
+1271,1351,Peter Doig,0.218110
+1272,1538,Sonia Delaunay,0.217739
+1273,853,Iain Faulkner,0.217548
+1274,803,Hasui Kawase,0.217482
+1275,135,Alfred Munnings,0.217479
+1276,1585,Terry Oakes,0.216570
+1277,359,Bernie Wrightson,0.215695
+1278,470,Charline von Heyl,0.215523
+1279,764,Grandma Moses,0.215499
+1280,557,David Spriggs,0.215387
+1281,87,Alena Aenami,0.215012
+1282,246,Anton Raphael Mengs,0.215011
+1283,212,Anna Ancher,0.214761
+1284,826,Henry Moret,0.214613
+1285,244,Anton Otto Fischer,0.214003
+1286,188,Andrei Markin,0.213861
+1287,1567,Syd Mead,0.213843
+1288,937,Jean-Antoine Watteau,0.213575
+1289,1677,Wayne Barlowe,0.213054
+1290,948,Jeff Easley,0.213036
+1291,263,Aristarkh Lentulov,0.212229
+1292,308,August Sander,0.212001
+1293,213,Anna and Elena Balbusso,0.211472
+1294,37,Agostino Arrivabene,0.211019
+1295,1248,Mickalene Thomas,0.210000
+1296,157,Alyssa Monks,0.209881
+1297,1094,Kent Monkman,0.209548
+1298,366,Bettina Rheims,0.209430
+1299,424,Bruce Timm,0.208909
+1300,1031,Jon Whitcomb,0.208655
+1301,1150,Lori Earley,0.208564
+1302,332,Bart Sears,0.208459
+1303,467,Charles Vess,0.208003
+1304,1344,Paul Wonner,0.207995
+1305,641,Ephraim Moses Lilien,0.207939
+1306,384,Bob Byerley,0.207552
+1307,1367,Philippe Druillet,0.207015
+1308,779,Gustave Buchet,0.206956
+1309,1586,Terry Redlin,0.205639
+1310,1120,Larry Poons,0.204800
+1311,68,Albert Lynch,0.204675
+1312,222,Anne Stokes,0.204273
+1313,782,Gustave Moreau,0.203652
+1314,486,Chris Van Allsburg,0.202523
+1315,556,David Shrigley,0.202482
+1316,1634,Tristan Eaton,0.202242
+1317,647,Ernie Barnes,0.202140
+1318,955,Jeff Wall,0.202033
+1319,722,George Frederic Watts,0.201774
+1320,452,Cedric Peyravernay,0.201628
+1321,878,J.C. Leyendecker,0.201352
+1322,1190,Margaret Macdonald Mackintosh,0.201250
+1323,1161,Lucy Madox Brown,0.201075
+1324,305,Audrey Kawasaki,0.200980
+1325,1486,Sam Kieth,0.200961
+1326,374,Bill Medcalf,0.200869
+1327,896,James Gilleard,0.200527
+1328,225,Anne-Louis Girodet,0.200301
+1329,1071,Kate Beaton,0.199619
+1330,846,Howard Hodgkin,0.199580
+1331,1237,Maximilien Luce,0.199069
+1332,1166,Lynda Barry,0.198933
+1333,303,Atey Ghailan,0.198758
+1334,356,Bernardo Bellotto,0.198179
+1335,614,Edwin Austin Abbey,0.197968
+1336,406,Brian Froud,0.197922
+1337,49,Alan Bean,0.197879
+1338,1068,Karl Schmidt-Rottluff,0.197302
+1339,717,Geof Darrow,0.197195
+1340,1127,Lee Krasner,0.197012
+1341,1451,Robert S. Duncanson,0.196809
+1342,685,Francis Coates Jones,0.196356
+1343,983,Joao Ruas,0.196125
+1344,1163,Luis Royo,0.195893
+1345,942,Jeanloup Sieff,0.195437
+1346,187,Andre-Charles Boulle,0.194371
+1347,667,Fairfield Porter,0.193878
+1348,284,Arthur Hacker,0.192596
+1349,373,Bill Jacklin,0.192544
+1350,1506,Scarlett Hooft Graafland,0.192286
+1351,293,Artur Bordalo,0.192123
+1352,473,Chesley Bonestell,0.191774
+1353,1407,Raymond Swanland,0.191772
+1354,1511,Sean Yoro,0.191640
+1355,141,Alice Neel,0.191244
+1356,643,Eric Wallis,0.190439
+1357,1303,Odd Nerdrum,0.190367
+1358,802,Harry Clarke,0.190122
+1359,99,Alex Howitt,0.190111
+1360,1262,Milton Caniff,0.189974
+1361,1268,Mort Kunstler,0.188908
+1362,447,Carne Griffiths,0.188761
+1363,370,Bill Durgin,0.187990
+1364,1211,Martin Ansin,0.187366
+1365,1443,Robert Irwin,0.187248
+1366,1280,NC Wyeth,0.186801
+1367,1000,John Atkinson Grimshaw,0.186756
+1368,1632,Tracey Emin,0.186157
+1369,851,Hugh Kretschmer,0.185533
+1370,1362,Peter Zumthor,0.184756
+1371,686,Francis Picabia,0.184651
+1372,1680,Wilfredo Lam,0.184248
+1373,331,Barry Windsor Smith,0.184148
+1374,505,Coby Whitmore,0.184091
+1375,1480,Ryan McGinley,0.183620
+1376,555,David Palumbo,0.183053
+1377,1011,John Harris,0.182990
+1378,523,Dan Mumford,0.182905
+1379,784,Guy Billout,0.182317
+1380,1001,John Bauer,0.182020
+1381,1690,William Kentridge,0.181725
+1382,200,Andy Goldsworthy,0.181477
+1383,663,Eyvind Earle,0.181394
+1384,1508,Scott Listfield,0.181378
+1385,575,Donato Giancola,0.181316
+1386,1041,Josephine Wall,0.180636
+1387,1254,Mike Winkelmann (Beeple),0.180434
+1388,762,Grace Cossington Smith,0.180105
+1389,922,Jason Edmiston,0.180003
+1390,256,Antony Gormley,0.179774
+1391,1672,Walter Langley,0.179509
+1392,1350,Peter De Seve,0.179416
+1393,926,JC Leyendecker,0.178271
+1394,1610,Tim White,0.177833
+1395,768,Greg Hildebrandt,0.177391
+1396,834,Hikari Shimoda,0.177258
+1397,669,Faith Ringgold,0.176757
+1398,991,Joel Meyerowitz,0.176669
+1399,1214,Martin Johnson Heade,0.176635
+1400,282,Arthur Dove,0.176596
+1401,1117,L. Birge Harrison,0.176165
+1402,1208,Mark Ryden,0.176076
+1403,140,Alice Bailly,0.175745
+1404,347,Ben Shahn,0.175365
+1405,1251,Mike Deodato,0.175230
+1406,323,Barbara Hepworth,0.175064
+1407,967,Jesper Ejsing,0.174364
+1408,1462,Roger Ballen,0.174061
+1409,1695,William Wegman,0.173841
+1410,101,Alex Maleev,0.173645
+1411,1089,Kelly Vivanco,0.173582
+1412,300,Ashley Willerton,0.173441
+1413,1365,Phil Koch,0.172959
+1414,1560,Stuart Haygarth,0.172607
+1415,408,Brian Kesinger,0.172287
+1416,337,Bastien Lecouffe-Deharme,0.172066
+1417,34,Agnes Cecile,0.171733
+1418,92,Alex Colville,0.170845
+1419,933,Jean Jullien,0.170722
+1420,1259,Mikko Lagerstedt,0.170001
+1421,638,Emmanuelle Moureaux,0.169977
+1422,401,Brent Heighton,0.169969
+1423,1546,Stanley Donwood,0.169805
+1424,1186,Marco Mazzoni,0.169595
+1425,1509,Scott Naismith,0.169351
+1426,708,Gabriel Dawe,0.168640
+1427,1514,Serge Marshennikov,0.167637
+1428,904,James Tissot,0.167620
+1429,1203,Mark Briscoe,0.167542
+1430,43,Akos Major,0.167255
+1431,289,Arthur Sarnoff,0.166882
+1432,313,Augustus Edwin Mulready,0.166705
+1433,590,Ed Binkley,0.166211
+1434,229,Annie Soudain,0.166193
+1435,917,Jane Newland,0.166162
+1436,620,Eileen Agar,0.166054
+1437,1267,Mordecai Ardon,0.165979
+1438,1297,Noelle Stevenson,0.165013
+1439,1029,Jon Klassen,0.163267
+1440,1067,Karl Blossfeldt,0.162720
+1441,1399,Raphael Lacoste,0.162572
+1442,414,Brice Marden,0.162392
+1443,1477,Ruth Bernhard,0.162391
+1444,1,A.J.Casson,0.162174
+1445,530,Daniela Uhlig,0.161996
+1446,560,Dean Cornwell,0.161950
+1447,47,Al Williamson,0.161562
+1448,1580,Ted Nasmith,0.161398
+1449,183,Andreas Franke,0.161031
+1450,454,Chantal Joffe,0.160871
+1451,1625,Tomi Ungerer,0.160802
+1452,1609,Tim Hildebrandt,0.159842
+1453,499,Claude Cahun,0.159805
+1454,128,Alfred Cheney Johnston,0.159391
+1455,1047,Judy Chicago,0.159178
+1456,1668,Wadim Kashin,0.159125
+1457,1433,Richard S. Johnson,0.158631
+1458,957,Jeffrey Smith art,0.157484
+1459,1644,Valerie Hegarty,0.155793
+1460,1663,Viviane Sassen,0.155598
+1461,1491,Sandra Chevrier,0.155593
+1462,445,Carlos Schwabe,0.155270
+1463,1335,Paul Corfield,0.155182
+1464,1073,Kati Horna,0.155148
+1465,508,Conor Harrington,0.154682
+1466,1091,Ken Kelly,0.154617
+1467,1666,W. Heath Robinson,0.154102
+1468,22,Adonna Khare,0.153946
+1469,151,Alphonse Osbert,0.153665
+1470,2,Aaron Douglas,0.153501
+1471,918,Janek Sedlar,0.153408
+1472,1330,Patrick Dougherty,0.152840
+1473,232,Anselm Kiefer,0.152496
+1474,302,Atelier Olschinsky,0.152389
+1475,170,Amy Sillman,0.152052
+1476,580,Dorothy Lathrop,0.151745
+1477,1536,Slim Aarons,0.150982
+1478,566,Diane Dillon,0.150778
+1479,382,Bo Bartlett,0.150185
+1480,630,Elsa Beskow,0.149918
+1481,880,Jacek Yerka,0.149495
+1482,457,Charles Blackman,0.148667
+1483,845,Howard Chandler Christy,0.148108
+1484,267,Armand Point,0.146811
+1485,1027,John Wilhelm,0.146614
+1486,1069,Karol Bak,0.146124
+1487,1352,Peter Elson,0.145266
+1488,377,Bill Ward,0.145106
+1489,735,Gerald Brom,0.144866
+1490,96,Alex Gross,0.144823
+1491,342,Ben Aronson,0.144613
+1492,1555,Steve Lieber,0.144240
+1493,1649,Victor Brauner,0.143473
+1494,1276,Naoto Hattori,0.142794
+1495,16,Adam Martinakis,0.142283
+1496,1125,Laurie Lipton,0.142264
+1497,341,Bella Kotak,0.141376
+1498,64,Albert Goodwin,0.141215
+1499,1243,Michael Hutter,0.141188
+1500,1447,Robert Mcginnis,0.140361
+1501,670,Fang Lijun,0.139907
+1502,559,David Wiesner,0.139443
+1503,828,Henry Raleigh,0.139175
+1504,529,Daniel Ridgway Knight,0.138616
+1505,771,Gregory Crewdson,0.138212
+1506,1482,Sally Mann,0.137858
+1507,588,Earl Norem,0.137236
+1508,1261,Milton Avery,0.137185
+1509,1623,Tomasz Alen Kopera,0.137065
+1510,233,Antanas Sutkus,0.137062
+1511,1366,Phil Noto,0.136741
+1512,372,Bill Henson,0.136709
+1513,235,Anthony Thieme,0.135810
+1514,989,Joe Madureira,0.135710
+1515,581,Doug Chiang,0.135048
+1516,214,Anna Bocek,0.134896
+1517,1101,Kim Keever,0.134764
+1518,850,Hugh Ferriss,0.134512
+1519,582,Douglas Smith,0.133912
+1520,1249,Miho Hirano,0.133711
+1521,1541,Squeak Carnwath,0.133539
+1522,56,Alayna Lemmer,0.133163
+1523,813,Helio Oiticica,0.133049
+1524,215,Anna Dittmann,0.132173
+1525,29,Adrian Tomine,0.131672
+1526,952,Jeff Legg,0.131588
+1527,987,Joe Fenton,0.131191
+1528,551,David Inshaw,0.130839
+1529,1329,Patrick Caulfield,0.130836
+1530,664,F Scott Hess,0.130769
+1531,234,Anthony Gerace,0.130177
+1532,639,Emory Douglas,0.129989
+1533,403,Brett Whiteley,0.128871
+1534,1061,Kadir Nelson,0.128860
+1535,1516,Shaun Tan,0.128329
+1536,1465,Rolf Armstrong,0.127868
+1537,653,Etel Adnan,0.127796
+1538,869,Ismail Inceoglu,0.126875
+1539,1400,Raphaelle Peale,0.125789
+1540,568,Diego Dayer,0.125068
+1541,1493,Sandy Skoglund,0.124869
+1542,958,Jeffrey T. Larson,0.124868
+1543,1406,Raymond Leech,0.124718
+1544,146,Allie Brosh,0.124575
+1545,441,Carl Holsoe,0.124312
+1546,883,Jack Gaughan,0.124144
+1547,739,Gertrude Abercrombie,0.123624
+1548,283,Arthur Garfield Dove,0.123225
+1549,730,George Tooker,0.122862
+1550,180,Andrea Kowch,0.122525
+1551,91,Alex Andreev,0.122394
+1552,479,Chris Foss,0.122378
+1553,1045,Jovana Rikalo,0.121749
+1554,243,Anton Mauve,0.121516
+1555,143,Alice Rahon,0.121028
+1556,1135,Leonora Carrington,0.120944
+1557,1422,Richard Burlet,0.120868
+1558,1326,Patrice Murciano,0.120744
+1559,978,Jimmy Lawlor,0.120156
+1560,1410,Rebecca Guay,0.120053
+1561,31,Afarin Sajedi,0.119832
+1562,448,Casey Weldon,0.119263
+1563,94,Alex Garant,0.118563
+1564,1299,Norman Ackroyd,0.117503
+1565,1084,Keith Negley,0.117496
+1566,838,Hiroshi Sugimoto,0.117415
+1567,168,Amy Earles,0.117295
+1568,516,Craig Mullins,0.116973
+1569,578,Dorina Costras,0.116593
+1570,1172,Mab Graves,0.114616
+1571,1647,Victo Ngai,0.114600
+1572,1432,Richard Misrach,0.112239
+1573,1205,Mark Keathley,0.111647
+1574,637,Emmanuel Shiu,0.111646
+1575,1240,Michael Carson,0.110869
+1576,1659,Virgil Finlay,0.110636
+1577,365,Beth Conklin,0.110480
+1578,482,Chris Ofili,0.109410
+1579,548,David Driskell,0.108249
+1580,823,Henry Asencio,0.108231
+1581,1354,Peter Holme III,0.107929
+1582,1714,Yinka Shonibare,0.107772
+1583,502,Clive Madgwick,0.107474
+1584,1139,Liam Wong,0.106994
+1585,615,Edwin Deakin,0.106944
+1586,148,Alma Thomas,0.105194
+1587,20,Adolph Gottlieb,0.104937
+1588,811,Helene Knoop,0.103749
+1589,990,Joe Webb,0.103236
+1590,956,Jeffrey Catherine Jones,0.102802
+1591,1520,Sherree Valentine Daines,0.101716
+1592,247,Anton Semenov,0.100865
+1593,1603,Thornton Oakley,0.100555
+1594,968,Jessica Rossier,0.100258
+1595,1255,Mike Worrall,0.100115
+1596,1087,Kelly Mckernan,0.099942
+1597,461,Charles Gwathmey,0.098563
+1598,959,Jenny Saville,0.097567
+1599,103,Alex Prager,0.096571
+1600,919,Jasmine Becket-Griffith,0.095867
+1601,1413,Reginald Marsh,0.095714
+1602,1202,Mark Arian,0.095526
+1603,1411,Rebecca Louise Law,0.095396
+1604,395,Brad Kunkle,0.094593
+1605,1348,Peter Andrew Jones,0.094315
+1606,674,Ferdinand Knab,0.094023
+1607,634,Emilia Wilk,0.091955
+1608,645,Erin Hanson,0.091233
+1609,90,Alessio Albi,0.090834
+1610,1510,Sean Scully,0.090704
+1611,1708,Yanjun Cheng,0.090476
+1612,339,Beauford Delaney,0.090443
+1613,179,Andre Kohn,0.090062
+1614,1244,Michael Parkes,0.089888
+1615,866,Iryna Yermolova,0.089581
+1616,451,Catrin Welz-Stein,0.089482
+1617,1176,Malcolm Liepke,0.088523
+1618,798,Hans Bellmer,0.087116
+1619,1308,Oleg Oprisco,0.086791
+1620,1097,Kevin Sloan,0.086707
+1621,1153,Louis Icart,0.086281
+1622,189,Andrew Ferez,0.086195
+1623,1554,Steve Henderson,0.084305
+1624,194,Andrey Remnev,0.083514
+1625,415,Bridget Bate Tichenor,0.081616
+1626,626,Elizabeth Shippen Green,0.080524
+1627,963,Jeremy Lipking,0.080297
+1628,185,Andreas Rocha,0.079704
+1629,491,Christopher Balaskas,0.078984
+1630,497,Clara Peeters,0.078824
+1631,78,Alberto Seveso,0.078724
+1632,563,Debbie Criswell,0.078331
+1633,1430,Richard Lindner,0.078069
+1634,142,Alice Pasquini,0.078033
+1635,1681,Will Barnet,0.077791
+1636,1245,Michael Sowa,0.076511
+1637,1718,Yue Minjun,0.075782
+1638,1626,Tomma Abts,0.075389
+1639,156,Alvin Langdon Coburn,0.073814
+1640,954,Jeff Simpson,0.070683
+1641,1038,Joseph Lorusso,0.070495
+1642,328,Barkley L. Hendricks,0.066402
+1643,1333,Paul Barson,0.066379
+1644,105,Alex Russell Flint,0.063849
+1645,1481,Sacha Goldberger,0.063278
+1646,1529,Simeon Solomon,0.063127
+1647,217,Anne Brigman,0.063070
+1648,1498,Santiago Caruso,0.062521
+1649,1282,Neil Welliver,0.062516
+1650,842,Hope Gangloff,0.062343
+1651,552,David Ligare,0.062324
+1652,1505,Saul Tepper,0.060955
+1653,48,Alain Laboile,0.060530
+1654,515,Craig Davison,0.060165
+1655,524,Dan Witz,0.060038
+1656,1565,Susan Seddon Boulet,0.059757
+1657,546,David Burdeny,0.059624
+1658,906,Jamie Baldridge,0.059378
+1659,1576,Tara McPherson,0.058964
+1660,964,Jeremy Mann,0.058821
+1661,1238,Mead Schaeffer,0.057966
+1662,1393,Ralph Horsley,0.057419
+1663,1123,Laurent Grasso,0.056928
+1664,291,Arthur Tress,0.056071
+1665,3,Aaron Horkey,0.056070
+1666,35,Agnes Lawrence Pelton,0.055061
+1667,1460,Rodney Matthews,0.054731
+1668,498,Clarence Holbrook Carter,0.053920
+1669,402,Brett Weston,0.053019
+1670,1059,Justin Gerard,0.049860
+1671,174,Anders Zorn,0.048486
+1672,628,Ellen Jewett,0.047897
+1673,258,Apollonia Saintclair,0.047314
+1674,863,Ingrid Baars,0.046798
+1675,1079,Kay Sage,0.046296
+1676,961,Jeremiah Ketner,0.045216
+1677,218,Anne Dewailly,0.044705
+1678,1361,Peter Wileman,0.044634
+1679,1020,John Salminen,0.044138
+1680,10,Abigail Larson,0.043999
+1681,500,Clemens Ascher,0.043576
+1682,1547,Stephen Gammell,0.042832
+1683,199,Andy Fairhurst,0.042079
+1684,1246,Michal Karcz,0.038712
+1685,1713,Yiannis Moralis,0.037421
+1686,1216,Martine Johanna,0.036251
+1687,1502,Saturno Butto,0.036019
+1688,1479,Ryan Hewett,0.034678
+1689,272,Aron Wiesenfeld,0.033373
+1690,1002,John Berkey,0.031774
+1691,1591,Thomas Blackshear,0.030804
+1692,1353,Peter Gric,0.030437
+1693,371,Bill Gekas,0.030284
+1694,1178,Mandy Disher,0.028538
+1695,1637,Tyler Shields,0.027193
+1696,1617,Tom Bagshaw,0.026602
+1697,238,Antoine Blanchard,0.026299
+1698,1452,Robert Stivers,0.025717
+1699,962,Jeremy Geddes,0.025716
+1700,856,Ida Rentoul Outhwaite,0.024468
+1701,417,Brooke DiDonato,0.023224
+1702,506,Coles Phillips,0.021624
+1703,1128,Lee Madgwick,0.021472
+1704,169,Amy Judd,0.019086
+1705,1388,Quint Buchholz,0.017984
+1706,1227,Matthias Jung,0.015379
+1707,1053,Julie Blackmon,0.013779
+1708,490,Christophe Vacher,0.010956
+1709,410,Brian Oldham,0.009003
+1710,593,Ed Freeman,0.008931
+1711,1325,Pascale Campion,0.004293
+1712,201,Andy Kehoe,0.002264
+1713,175,Ando Fuchs,0.002128
+1714,385,Bob Eggleton,0.001164
+1715,409,Brian Mashburn,0.000463
+1716,1279,Nathan Wirth,-0.001280
+1717,1446,Robert McCall,-0.001341
+1718,242,Anton Fadeev,-0.002007
+1719,160,Amandine Van Ray,-0.004012
+1720,683,Francesca Woodman,-0.006840
+1721,228,Annick Bouvattier,-0.012463
+1722,418,Brooke Shaden,-0.012579
+1723,220,Anne Packard,-0.013029
+1724,519,Cyril Rolando,-0.015266
+1725,509,Conrad Roset,-0.016121
+1726,1419,Reylia Slaby,-0.017147
+1727,1403,Ray Donley,-0.019519
+1728,1179,Mao Hamaguchi,-0.029259
+1729,1358,Peter Mohrbacher,-0.031938
+1730,1062,Kaethe Butcher,-0.035956
+1731,1239,Meryl McMaster,-0.036415
+1732,107,Alex Timmermans,-0.041500
+1733,1311,Olivier Valsecchi,-0.046517
+1734,594,Ed Mell,-0.081142

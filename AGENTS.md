@@ -10,7 +10,7 @@ Run unit tests with:
 python -m unittest discover -s tests
 ```
 
-Run a focused edit with `CUDA_VISIBLE_DEVICES=0 python train_erase_null.py --target_concepts "Snoopy" --anchor_concepts "" --retain_path data/instance.csv --heads concept`. Use `sample.py` or `sample2.py` to inspect the result. Full evaluations are available through `scripts/eval_few.sh`, `scripts/eval_multi.sh`, and `scripts/eval_nudity.sh`; check GPU arrays and output paths before running them.
+On the remote CUDA server, a focused edit can use `CUDA_VISIBLE_DEVICES=0 python train_erase_null.py --target_concepts "Snoopy" --anchor_concepts "" --retain_path data/instance.csv --heads concept`. Use `sample.py` or `sample2.py` to inspect the result there. Full evaluations are available through `scripts/eval_few.sh`, `scripts/eval_multi.sh`, and `scripts/eval_nudity.sh`; check GPU arrays and output paths before running them.
 
 ## Coding Style
 
@@ -18,4 +18,6 @@ Use four-space indentation, `snake_case` for Python names, and concise comments 
 
 ## Testing and Evaluation
 
-Name tests `test_*.py` and use `unittest`. Add focused numerical tests for residual construction and configuration tests for new modes. Run the smallest relevant tests first, then full discovery. GPU workflows require model downloads and can be expensive; report when only CPU/unit validation was performed.
+Name tests `test_*.py` and use `unittest`. Add focused numerical tests for residual construction and configuration tests for new modes. Run the smallest relevant tests first, then full discovery.
+
+The local environment is a MacBook. Local tests must be CPU-only and must not download pretrained model weights or run GPU workflows. Use synthetic tensors, small fake models, and mocks for local validation. Heavy tests, model-backed training, sampling, and evaluations run only on a remote CUDA server. If a task needs those checks, ask the user for the SSH command to that server before attempting them. Report clearly when validation was limited to local CPU tests.

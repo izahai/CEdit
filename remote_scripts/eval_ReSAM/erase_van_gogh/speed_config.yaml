@@ -1,0 +1,24 @@
+# Baseline SPEED Van Gogh style erasure configuration
+sd_ckpt: CompVis/stable-diffusion-v1-4
+target_concepts: Van Gogh
+anchor_concepts: art
+retain_path: data/style.csv
+heads: concept
+
+# SPEED Closed-Form Hyperparameters
+baseline: SPEED
+params: V
+aug_num: 10
+retain_projection_rank: 100
+threshold: 0.1
+retain_scale: 1.0
+residual_scale: 1.0
+lamb: 0.0
+
+# Style Settings
+erase_style: false
+seed: 0
+
+# Output
+save_path: logs/speed/van_gogh
+file_name: weight

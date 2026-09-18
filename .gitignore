@@ -12,3 +12,9 @@ __pycache__/train_erase_null.cpython-314.pyc
 /exp_results/few_style_0.3_thr/style_100r/examine
 /exp_results/few_style_0.1_thr/style_10r_material/inspect_images
 /exp_results/closed_form_backprop
+/remote_scripts/eval_ReSAM/erase_van_gogh/result_k5_200s_1r
+/remote_scripts/eval_ReSAM/erase_van_gogh/result_k5_50s_100r
+/remote_scripts/eval_zero_anchor/eval_zero_anchor_img/outputs
+/remote_scripts/eval_zero_anchor/outputs
+/remote_scripts/eval_ReSAM/erase_van_gogh/result_k1_50s_1r
+/remote_scripts/eval_ReSAM/erase_van_gogh/result_k2_50s_1r

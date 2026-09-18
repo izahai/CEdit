@@ -1,0 +1,41 @@
+# ReSAM Van Gogh style erasure configuration
+sd_ckpt: CompVis/stable-diffusion-v1-4
+target_concepts:
+  - Van Gogh
+candidate_concepts: data/style.csv
+retain_path: data/style.csv
+heads: concept
+
+# ReSAM Sparse Mixture
+resam_k: 5
+resam_temperature: 1.0
+resam_ste: true
+
+# Loss Configuration
+use_null_retain_loss: true
+
+# Training Hyperparameters
+steps: 50
+lr: 0.05
+num_train_inference_steps: 20
+seed: 0
+
+# Style Settings
+erase_style: false
+
+# SPEED Closed-Form Edit Settings
+baseline: SPEED
+params: V
+anchor_mode: legacy
+aug_num: 0
+retain_projection_rank: 100
+threshold: 0.1 
+retain_scale: 1.0
+residual_scale: 1.0
+lamb: 0.0
+use_k2: true
+
+# Output
+save_path: logs/resam/van_gogh
+file_name: weight
+

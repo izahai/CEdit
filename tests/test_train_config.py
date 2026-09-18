@@ -6,24 +6,28 @@ from unittest.mock import patch
 from pathlib import Path
 
 
+import importlib.machinery
+
+
 def _install_optional_dependency_stubs():
-    pandas = types.ModuleType("pandas")
-    tqdm_module = types.ModuleType("tqdm")
-    tqdm_module.tqdm = lambda values, **_: values
-    kmeans_module = types.ModuleType("kmeans_pytorch")
-    kmeans_module.kmeans = None
-    diffusers = types.ModuleType("diffusers")
-    diffusers.StableDiffusionPipeline = object
-    sys.modules.setdefault("pandas", pandas)
-    sys.modules.setdefault("tqdm", tqdm_module)
-    sys.modules.setdefault("kmeans_pytorch", kmeans_module)
-    sys.modules.setdefault("diffusers", diffusers)
+    for name in ("pandas", "tqdm", "kmeans_pytorch", "diffusers"):
+        if name not in sys.modules:
+            stub = types.ModuleType(name)
+            stub.__spec__ = importlib.machinery.ModuleSpec(name, None)
+            if name == "tqdm":
+                stub.tqdm = lambda values, **_: values
+            elif name == "kmeans_pytorch":
+                stub.kmeans = None
+            elif name == "diffusers":
+                stub.StableDiffusionPipeline = object
+            sys.modules[name] = stub
 
 
 _install_optional_dependency_stubs()
 
 from train_erase_null import (
     DEFAULT_SUBSPACE_ANCHOR_CONCEPTS,
+    is_zero_anchor_concept,
     load_subspace_concepts,
     normalize_concepts,
     normalize_subspace_anchor_concepts,
@@ -275,6 +279,27 @@ class TrainConfigTests(unittest.TestCase):
             normalize_concepts(["", "person"], "anchor_concepts", allow_empty=True),
             ["", "person"],
         )
+
+    def test_is_zero_anchor_concept(self):
+        self.assertTrue(is_zero_anchor_concept("<zero>"))
+        self.assertTrue(is_zero_anchor_concept("<ZERO>"))
+        self.assertTrue(is_zero_anchor_concept(" <zero> "))
+        self.assertFalse(is_zero_anchor_concept("zero"))
+        self.assertFalse(is_zero_anchor_concept("<zeros>"))
+        self.assertFalse(is_zero_anchor_concept(""))
+        self.assertFalse(is_zero_anchor_concept("person"))
+        self.assertFalse(is_zero_anchor_concept(None))
+        self.assertFalse(is_zero_anchor_concept(123))
+
+    def test_zero_anchor_parses_from_cli_and_yaml(self):
+        _, args = parse_args(["--anchor_concepts", "<zero>"])
+        self.assertEqual(args.anchor_concepts, "<zero>")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "train.yaml"
+            config_path.write_text("anchor_concepts: '<zero>'\n", encoding="utf-8")
+            _, yaml_args = parse_args(["--config", str(config_path)])
+        self.assertEqual(yaml_args.anchor_concepts, "<zero>")
 
 
 if __name__ == "__main__":

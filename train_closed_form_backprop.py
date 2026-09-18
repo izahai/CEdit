@@ -151,6 +151,11 @@ def normalize_concepts(value, name: str, *, allow_empty: bool = False) -> list[s
     return normalized
 
 
+def is_zero_anchor_concept(concept: str) -> bool:
+    """Return True if concept specifies the literal zero embedding sentinel."""
+    return isinstance(concept, str) and concept.strip().lower() == "<zero>"
+
+
 def validate_args(
     parser: argparse.ArgumentParser,
     args: argparse.Namespace,
@@ -267,185 +272,23 @@ def validate_args(
     return targets, anchors
 
 
-def load_prompt_csv(path: str | os.PathLike[str]) -> list[str]:
-    prompts: list[str] = []
-    with open(path, newline="", encoding="utf-8") as prompt_file:
-        reader = csv.DictReader(prompt_file)
-        if not reader.fieldnames or "prompt" not in reader.fieldnames:
-            raise ValueError(f"Prompt CSV must contain a 'prompt' column: {path}")
-        for row_number, row in enumerate(reader, start=2):
-            prompt = (row.get("prompt") or "").strip()
-            if not prompt:
-                raise ValueError(f"Prompt CSV contains a blank prompt at row {row_number}: {path}")
-            prompts.append(prompt)
-    if not prompts:
-        raise ValueError(f"Prompt CSV contains no prompts: {path}")
-    return prompts
+from src.diffusion_training_inputs import (
+    _make_generator,
+    build_state,
+    build_validation_bank,
+    cpu_tensor_dict,
+    encode_last_subject_embeddings,
+    encode_prompts,
+    get_package_versions,
+    load_prompt_csv,
+    load_retain_texts,
+    resolve_prompts,
+    sha256_file,
+)
 
-
-def resolve_prompts(path: str | None, fallback: Sequence[str]) -> list[str]:
-    return load_prompt_csv(path) if path is not None else list(fallback)
-
-
-def load_retain_texts(
-    path: str | os.PathLike[str],
-    heads: str,
-    targets: Sequence[str],
-) -> list[str]:
-    if not str(path).endswith(".csv"):
-        raise ValueError("retain_path must point to a CSV file")
-    requested_heads = [head.strip() for head in heads.split(",") if head.strip()]
-    if not requested_heads:
-        raise ValueError("heads must contain at least one CSV column")
-    values: list[str] = []
-    seen = set()
-    with open(path, newline="", encoding="utf-8") as retain_file:
-        reader = csv.DictReader(retain_file)
-        missing = [head for head in requested_heads if head not in (reader.fieldnames or [])]
-        if missing:
-            raise ValueError("Retain CSV is missing column(s): " + ", ".join(missing))
-        for row_number, row in enumerate(reader, start=2):
-            for head in requested_heads:
-                text = (row.get(head) or "").strip()
-                if not text:
-                    raise ValueError(
-                        f"Retain CSV contains a blank {head!r} value at row {row_number}"
-                    )
-                if text not in seen:
-                    seen.add(text)
-                    values.append(text)
-
-    filtered = [
-        text
-        for text in values
-        if not any(
-            re.search(r"\b" + re.escape(target.lower()) + r"\b", text.lower())
-            for target in targets
-        )
-    ]
-    if not filtered:
-        raise ValueError("Retain set is empty after target exclusion")
-    return filtered
-
-
-@torch.no_grad()
-def encode_prompts(pipe, prompts: Sequence[str], device: torch.device) -> torch.Tensor:
-    tokens = pipe.tokenizer(
-        list(prompts),
-        padding="max_length",
-        max_length=pipe.tokenizer.model_max_length,
-        truncation=True,
-        return_tensors="pt",
-    )
-    return pipe.text_encoder(tokens.input_ids.to(device)).last_hidden_state
-
-
-@torch.no_grad()
-def encode_last_subject_embeddings(
-    pipe,
-    prompts: Sequence[str],
-    device: torch.device,
-    chunk_size: int = 128,
-) -> torch.Tensor:
-    embeddings = []
-    for start in range(0, len(prompts), chunk_size):
-        values = list(prompts[start : start + chunk_size])
-        tokens = pipe.tokenizer(
-            values,
-            padding="max_length",
-            max_length=pipe.tokenizer.model_max_length,
-            truncation=True,
-            return_tensors="pt",
-        )
-        hidden = pipe.text_encoder(tokens.input_ids.to(device)).last_hidden_state
-        subject_indices = (tokens.attention_mask.sum(1) - 2).to(device)
-        batch_indices = torch.arange(hidden.shape[0], device=device)
-        embeddings.append(hidden[batch_indices, subject_indices].unsqueeze(1))
-    return torch.cat(embeddings)
-
-
-def _make_generator(device: torch.device, seed: int) -> torch.Generator:
-    generator_device = device if device.type == "cuda" else torch.device("cpu")
-    return torch.Generator(device=generator_device).manual_seed(seed)
-
-
-def build_state(
-    pipe,
-    hidden_cache: dict[str, torch.Tensor],
-    prompts: Sequence[str],
-    null_hidden: torch.Tensor,
-    args: argparse.Namespace,
-    *,
-    seed: int,
-    prefix_index: int,
-):
-    hidden = torch.cat([hidden_cache[prompt] for prompt in prompts])
-    return sample_prefix_diffusion_state(
-        pipe,
-        hidden,
-        null_hidden,
-        prompt=" | ".join(prompts),
-        seed=seed,
-        prefix_index=prefix_index,
-        num_inference_steps=args.num_inference_steps,
-        guidance_scale=args.guidance_scale,
-        resolution=args.resolution,
-        generator=_make_generator(pipe.unet.device, seed),
-    )
-
-
-def build_validation_bank(
-    pipe,
-    hidden_cache: dict[str, torch.Tensor],
-    prompts: Sequence[str],
-    null_hidden: torch.Tensor,
-    args: argparse.Namespace,
-    *,
-    seed_offset: int = 0,
-) -> list:
-    states = []
-    rng = random.Random(args.validation_seed + seed_offset)
-    for index in range(args.validation_samples):
-        prompt = prompts[index % len(prompts)]
-        seed = args.validation_seed + seed_offset + index
-        prefix_index = rng.randrange(args.num_inference_steps)
-        states.append(
-            build_state(
-                pipe,
-                hidden_cache,
-                [prompt],
-                null_hidden,
-                args,
-                seed=seed,
-                prefix_index=prefix_index,
-            )
-        )
-    return states
-
-
-def _sha256(path: str | os.PathLike[str]) -> str:
-    digest = hashlib.sha256()
-    with open(path, "rb") as source:
-        for chunk in iter(lambda: source.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def _package_versions() -> dict[str, str]:
-    versions = {"torch": torch.__version__, "cuda": str(torch.version.cuda)}
-    for package in ("diffusers", "transformers", "safetensors", "kmeans-pytorch"):
-        try:
-            versions[package] = importlib.metadata.version(package)
-        except importlib.metadata.PackageNotFoundError:
-            versions[package] = "unavailable"
-    return versions
-
-
-def _cpu_tensors(values: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
-    return {
-        name: value.detach().to(device="cpu").contiguous()
-        for name, value in values.items()
-    }
+_sha256 = sha256_file
+_package_versions = get_package_versions
+_cpu_tensors = cpu_tensor_dict
 
 
 @torch.no_grad()
@@ -623,6 +466,20 @@ def main(argv=None) -> None:
         initial_anchor_embeddings = encode_last_subject_embeddings(
             pipe, anchor_texts, device
         )
+        if any(is_zero_anchor_concept(anchor) for anchor in anchor_texts):
+            anchor_chunks = []
+            for i, anchor in enumerate(anchor_texts):
+                if is_zero_anchor_concept(anchor):
+                    anchor_chunks.append(torch.zeros_like(target_embeddings[i : i + 1]))
+                else:
+                    anchor_chunks.append(
+                        encode_last_subject_embeddings(pipe, [anchor], device)
+                    )
+            initial_anchor_embeddings = torch.cat(anchor_chunks, dim=0)
+        else:
+            initial_anchor_embeddings = encode_last_subject_embeddings(
+                pipe, anchor_texts, device
+            )
         retain_embeddings = encode_last_subject_embeddings(pipe, retain_texts, device)
         null_hidden = encode_prompts(pipe, [""], device)
         all_prompts = list(
